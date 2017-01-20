@@ -46,6 +46,13 @@ int MPID_nem_barrier_vars_init (MPID_nem_barrier_vars_t *barrier_region);
  * escape earlier than this check. */
 #define MPID_nem_fbox_is_full(pbox_) (OPA_load_acquire_int(&(pbox_)->flag.value))
 
+typedef struct MPID_nem_pkt_lmt_rts_pipext
+{
+    uintptr_t sender_buf;
+    MPI_Datatype sender_dt;
+    MPI_Aint sender_count;
+} MPID_nem_pkt_lmt_rts_pipext_t;
+
 typedef struct MPID_nem_pkt_lmt_rts
 {
     MPIDI_CH3_Pkt_type_t type;
@@ -53,6 +60,13 @@ typedef struct MPID_nem_pkt_lmt_rts
     MPI_Request sender_req_id;
     intptr_t data_sz;
     intptr_t cookie_len;
+#ifdef HAVE_PIP
+    /* Store extra variables in a heap object
+     * to reduce packet header size. The receiver
+     * can directly access it. Free it at DONE
+     * handler. */
+    MPID_nem_pkt_lmt_rts_pipext_t *extpkt;
+#endif
 }
 MPID_nem_pkt_lmt_rts_t;
 

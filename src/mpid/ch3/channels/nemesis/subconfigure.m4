@@ -276,6 +276,9 @@ case "$with_nemesis_local_lmt" in
     vmsplice)
     local_lmt_impl=MPID_NEM_LOCAL_LMT_VMSPLICE
     ;;
+    pip)
+    local_lmt_impl=MPID_NEM_LOCAL_LMT_PIP
+    ;;
     none)
     local_lmt_impl=MPID_NEM_LOCAL_LMT_NONE
     ;;

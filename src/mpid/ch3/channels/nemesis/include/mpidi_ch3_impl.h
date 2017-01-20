@@ -82,6 +82,15 @@ int MPID_nem_lmt_vmsplice_done_send(MPIDI_VC_t *vc, MPIR_Request *req);
 int MPID_nem_lmt_vmsplice_done_recv(MPIDI_VC_t *vc, MPIR_Request *req);
 int MPID_nem_lmt_vmsplice_vc_terminated(MPIDI_VC_t *vc);
 
+int MPID_nem_lmt_pip_initiate_lmt(MPIDI_VC_t *vc, MPIDI_CH3_Pkt_t *rts_pkt, MPIR_Request *req);
+int MPID_nem_lmt_pip_start_recv(MPIDI_VC_t *vc, MPIR_Request *req, MPL_IOV s_cookie);
+int MPID_nem_lmt_pip_start_send(MPIDI_VC_t *vc, MPIR_Request *req, MPL_IOV r_cookie);
+int MPID_nem_lmt_pip_handle_cookie(MPIDI_VC_t *vc, MPIR_Request *req, MPL_IOV cookie);
+int MPID_nem_lmt_pip_done_send(MPIDI_VC_t *vc, MPIR_Request *req);
+int MPID_nem_lmt_pip_done_recv(MPIDI_VC_t *vc, MPIR_Request *req);
+int MPID_nem_lmt_pip_progress(void);
+int MPID_nem_lmt_pip_vc_terminated(MPIDI_VC_t *vc);
+
 int MPID_nem_handle_pkt(MPIDI_VC_t *vc, char *buf, intptr_t buflen);
 
 /* Nemesis-provided RMA implementation */

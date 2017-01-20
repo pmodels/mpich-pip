@@ -170,6 +170,13 @@ struct MPIDI_CH3I_Request
     struct MPIR_Request *lmt_req;        /* pointer to original send/recv request */
     intptr_t       lmt_data_sz;    /* data size to be transferred, after checking for truncation */
     MPL_IOV             lmt_tmp_cookie; /* temporary storage for received cookie */
+#ifdef HAVE_PIP
+    void *lmt_buf_addr; /* buffer address on peer side */
+    MPI_Datatype lmt_datatype; /* datatype on peer side */
+    MPI_Aint lmt_count; /* count on peer side */
+    void *lmt_extpkt;  /* temporary storage for PIP extent packet,
+                        * store its pointer in request in order to free when LMT done. */
+#endif
     void                *s_cookie;       /* temporary storage for the cookie data in case the packet can't be sent immediately */
 
     union

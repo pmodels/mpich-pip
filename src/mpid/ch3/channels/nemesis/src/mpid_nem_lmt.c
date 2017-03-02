@@ -148,13 +148,17 @@ int MPID_nem_lmt_RndvSend(MPIR_Request **sreq_p, const void * buf, MPI_Aint coun
     MPID_THREAD_CS_EXIT(POBJ, MPIR_THREAD_GLOBAL_ALLFUNC_MUTEX);
     if (mpi_errno) MPIR_ERR_POP(mpi_errno);
 
+#ifdef HAVE_PIP
     MPIR_CHKPMEM_COMMIT();
+#endif
 
  fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_NEM_LMT_RNDVSEND);
     return mpi_errno;
  fn_fail:
+#ifdef HAVE_PIP
     MPIR_CHKPMEM_REAP();
+#endif
     goto fn_exit;
 }
 

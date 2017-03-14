@@ -95,9 +95,6 @@ int MPID_nem_lmt_RndvSend(MPIR_Request **sreq_p, const void * buf, MPI_Aint coun
 
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_NEM_LMT_RNDVSEND);
 
-#ifdef HAVE_PIP
-    MPIR_CHKPMEM_DECL(1);
-#endif
     MPIDI_Comm_get_vc_set_active(comm, rank, &vc);
 
     /* if the lmt functions are not set, fall back to the default rendezvous code */
@@ -120,20 +117,6 @@ int MPID_nem_lmt_RndvSend(MPIR_Request **sreq_p, const void * buf, MPI_Aint coun
     rts_pkt->sender_req_id    = sreq->handle;
     rts_pkt->data_sz	      = data_sz;
 
-#ifdef HAVE_PIP
-    /* use extent packet to transfer PIP LMT metadata, because increased packet
-     * size can also effect all other messages. The peer PIP can directly access
-     * the extent packet.*/
-    MPIR_CHKPMEM_MALLOC (rts_pkt->extpkt, MPID_nem_pkt_lmt_rts_pipext_t *,
-                         sizeof (MPID_nem_pkt_lmt_rts_pipext_t), mpi_errno,
-                         "lmt RTS extent packet");
-    rts_pkt->extpkt->sender_buf = (uintptr_t) buf;
-    rts_pkt->extpkt->sender_dt = datatype;
-    rts_pkt->extpkt->sender_count = count;
-    sreq->ch.lmt_extpkt = rts_pkt->extpkt; /* store in request, thus can free it
-                                            * when LMT done.*/
-#endif
-
     MPIDI_VC_FAI_send_seqnum(vc, seqnum);
     MPIDI_Pkt_set_seqnum(rts_pkt, seqnum);
     MPIDI_Request_set_seqnum(sreq, seqnum);
@@ -148,17 +131,10 @@ int MPID_nem_lmt_RndvSend(MPIR_Request **sreq_p, const void * buf, MPI_Aint coun
     MPID_THREAD_CS_EXIT(POBJ, MPIR_THREAD_GLOBAL_ALLFUNC_MUTEX);
     if (mpi_errno) MPIR_ERR_POP(mpi_errno);
 
-#ifdef HAVE_PIP
-    MPIR_CHKPMEM_COMMIT();
-#endif
-
  fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_NEM_LMT_RNDVSEND);
     return mpi_errno;
  fn_fail:
-#ifdef HAVE_PIP
-    MPIR_CHKPMEM_REAP();
-#endif
     goto fn_exit;
 }
 
@@ -238,13 +214,9 @@ static int pkt_RTS_handler(MPIDI_VC_t *vc, MPIDI_CH3_Pkt_t *pkt, void *data, int
     rreq->ch.lmt_req_id = rts_pkt->sender_req_id;
     rreq->ch.lmt_data_sz = rts_pkt->data_sz;
 #ifdef HAVE_PIP
-    rreq->ch.lmt_buf_addr = (void *) rts_pkt->extpkt->sender_buf;
-    rreq->ch.lmt_datatype = rts_pkt->extpkt->sender_dt;
-    rreq->ch.lmt_count = rts_pkt->extpkt->sender_count;
+    rreq->ch.lmt_extpkt = rts_pkt->extpkt;
 #endif
     data_len = *buflen;
-
-
 
     if (data_len < rts_pkt->cookie_len)
     {

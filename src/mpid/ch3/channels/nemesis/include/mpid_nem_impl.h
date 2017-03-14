@@ -46,12 +46,36 @@ int MPID_nem_barrier_vars_init (MPID_nem_barrier_vars_t *barrier_region);
  * escape earlier than this check. */
 #define MPID_nem_fbox_is_full(pbox_) (OPA_load_acquire_int(&(pbox_)->flag.value))
 
+#ifdef HAVE_PIP
+enum {
+    MPIDI_NEM_LMT_PIP_PCP_INIT = 0, /* initialized by sender */
+    MPID_NEM_LMT_PIP_PCP_P1_COPY = 1, /* copying part-1 */
+    MPID_NEM_LMT_PIP_PCP_P2_COPY = 2, /* copying part-2 */
+    MPID_NEM_LMT_PIP_PCP_SDONE = 3,   /* sender done, set if sender copied part-2 */
+    MPID_NEM_LMT_PIP_PCP_DONE = 4,    /* final done, set by receiver */
+};
+
+/* PIP parallel copy structure.
+ * Allocated at sender init and freed when copy is done. */
+typedef struct MPID_nem_lmt_pip_pcp {
+    /* receiver fill at RTS arrival. */
+    uintptr_t receiver_buf;
+    MPI_Datatype receiver_dt;
+    MPI_Aint receiver_count;
+
+    /* updated by both sides. */
+    OPA_int_t stat;
+} MPID_nem_lmt_pip_pcp_t;
+
 typedef struct MPID_nem_pkt_lmt_rts_pipext
 {
     uintptr_t sender_buf;
     MPI_Datatype sender_dt;
     MPI_Aint sender_count;
+    MPID_nem_lmt_pip_pcp_t pcp;
 } MPID_nem_pkt_lmt_rts_pipext_t;
+#endif
+
 
 typedef struct MPID_nem_pkt_lmt_rts
 {

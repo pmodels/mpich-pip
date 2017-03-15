@@ -23,6 +23,18 @@ cvars:
         Messages larger than this size will use the parallel-copy method
         for intranode PIP LMT implementation, set to 0 to disable it.
 
+    - name        : MPIR_CVAR_NEMESIS_LMT_PIP_PCP_CHUNKSIZE
+      category    : NEMESIS
+      type        : int
+      default     : 131072
+      class       : none
+      verbosity   : MPI_T_VERBOSITY_USER_BASIC
+      scope       : MPI_T_SCOPE_ALL_EQ
+      description : >-
+        Divide message into multiple chunks each with this size in parallel-copy
+        method for intranode PIP LMT implementation, set to 0 to always divide
+        into two chunks.
+
 === END_MPI_T_CVAR_INFO_BLOCK ===
 */
 
@@ -64,7 +76,9 @@ int MPID_nem_lmt_pip_initiate_lmt(MPIDI_VC_t * vc, MPIDI_CH3_Pkt_t * pkt, MPIR_R
     rts_pkt->extpkt->sender_dt = req->dev.datatype;
     rts_pkt->extpkt->sender_count = req->dev.user_count;
 
-    OPA_store_int(&rts_pkt->extpkt->pcp.stat, MPIDI_NEM_LMT_PIP_PCP_INIT);
+    OPA_store_int(&rts_pkt->extpkt->pcp.offset, 0);
+    OPA_store_int(&rts_pkt->extpkt->pcp.complete_cnt, 0);
+
     req->ch.lmt_extpkt = rts_pkt->extpkt;       /* store in request, thus can free it
                                                  * when LMT done.*/
     OPA_write_barrier();
@@ -114,9 +128,9 @@ int MPID_nem_lmt_pip_start_send(MPIDI_VC_t * vc, MPIR_Request * req, MPL_IOV r_c
     MPI_Aint recv_true_lb = 0, recv_true_extent ATTRIBUTE((unused));
     int send_iscontig ATTRIBUTE((unused)), recv_iscontig ATTRIBUTE((unused));
     char *sbuf_ptr = NULL, *rbuf_ptr = NULL;
-    int old_pcp_stat = MPID_NEM_LMT_PIP_PCP_P1_COPY;
     MPI_Aint copy_size = 0, data_size = 0, recv_size = 0;
     MPIDU_Datatype *send_dtptr, *recv_dtptr;
+    int offset = 0;
 
     MPID_nem_pkt_lmt_rts_pipext_t *lmt_extpkt =
         (MPID_nem_pkt_lmt_rts_pipext_t *) req->ch.lmt_extpkt;
@@ -126,42 +140,39 @@ int MPID_nem_lmt_pip_start_send(MPIDI_VC_t * vc, MPIR_Request * req, MPL_IOV r_c
 
     /* Received CTS only when parallel copy is initialized. */
 
-    /* Check whether sender is already copying part-2. */
-    old_pcp_stat = OPA_cas_int(&lmt_extpkt->pcp.stat, MPID_NEM_LMT_PIP_PCP_P1_COPY,
-                               MPID_NEM_LMT_PIP_PCP_P2_COPY);
+    MPIDI_Datatype_get_info(req->dev.user_count, req->dev.datatype,
+                            send_iscontig, data_size, send_dtptr, send_true_lb);
+    MPIDI_Datatype_get_info(lmt_extpkt->pcp.receiver_count, lmt_extpkt->pcp.receiver_dt,
+                            recv_iscontig, recv_size, recv_dtptr, recv_true_lb);
 
-    /* Copy part-2 if receiver does not start yet.
-     * Current stat can be PI_COPY | P2_COPY | DONE.*/
-    if (old_pcp_stat == MPID_NEM_LMT_PIP_PCP_P1_COPY) {
+    offset = OPA_fetch_and_incr_int(&lmt_extpkt->pcp.offset);
+    while (offset < lmt_extpkt->pcp.nchunks) {
+        copy_size = lmt_extpkt->pcp.chunk_size;
+        if (offset == lmt_extpkt->pcp.nchunks - 1
+                && data_size % lmt_extpkt->pcp.chunk_size) {
+            copy_size = data_size % lmt_extpkt->pcp.chunk_size;
+        }
+        sbuf_ptr = (char *) lmt_extpkt->sender_buf + send_true_lb +
+            lmt_extpkt->pcp.chunk_size * offset;
+        rbuf_ptr = (char *) lmt_extpkt->pcp.receiver_buf + recv_true_lb +
+            lmt_extpkt->pcp.chunk_size * offset;
 
-        PIP_DBG_PRINT("[%d] %s: extpkt %p, recv_buf=0x%lx, count=%ld, datatype=%lx\n",
-                      myrank, __FUNCTION__, lmt_extpkt, lmt_extpkt->pcp.receiver_buf,
-                      lmt_extpkt->pcp.receiver_count, (unsigned long) lmt_extpkt->pcp.receiver_dt);
+        PIP_DBG_PRINT("[%d] parallel-copy(s): copying part-%d/%d, data_size=%ld/%ld, "
+                      "sbuf_ptr=%p(%ld), rbuf_ptr=%p(%ld)\n", myrank, offset,
+                      lmt_extpkt->pcp.nchunks, copy_size, data_size,
+                      sbuf_ptr, send_true_lb, rbuf_ptr, recv_true_lb);
 
-        MPIDI_Datatype_get_info(req->dev.user_count, req->dev.datatype,
-                                send_iscontig, data_size, send_dtptr, send_true_lb);
-        MPIDI_Datatype_get_info(lmt_extpkt->pcp.receiver_count, lmt_extpkt->pcp.receiver_dt,
-                                recv_iscontig, recv_size, recv_dtptr, recv_true_lb);
+        MPIR_Memcpy((char *) rbuf_ptr, (char *) sbuf_ptr, copy_size);
 
-        copy_size = data_size / 2;
-        sbuf_ptr = (char *) lmt_extpkt->sender_buf + copy_size;
-        rbuf_ptr = (char *) lmt_extpkt->pcp.receiver_buf + copy_size;
-        copy_size = data_size - copy_size;      /* remaining half */
+        /* Finished a chunk. */
+        OPA_decr_int(&lmt_extpkt->pcp.complete_cnt);
 
-        PIP_DBG_PRINT("[%d] parallel-copy(s): copying part-2, data_size=%ld/%ld, "
-                      "sbuf_ptr=%p(%ld), rbuf_ptr=%p(%ld)\n", myrank, copy_size,
-                      data_size, sbuf_ptr, send_true_lb, rbuf_ptr, recv_true_lb);
+        /* Get next chunk. */
+        offset = OPA_fetch_and_incr_int(&lmt_extpkt->pcp.offset);
+    };
 
-        MPIR_Memcpy(((char *) rbuf_ptr + recv_true_lb), ((char *) sbuf_ptr + send_true_lb),
-                    copy_size);
-
-        /* Sender side copy DONE. */
-        OPA_store_int(&lmt_extpkt->pcp.stat, MPID_NEM_LMT_PIP_PCP_SDONE);
-        PIP_DBG_PRINT("[%d] parallel-copy(s): part-2 DONE\n", myrank);
-    }
-
-    /* Wait till sender set DONE. */
-    while (OPA_load_int(&lmt_extpkt->pcp.stat) != MPID_NEM_LMT_PIP_PCP_DONE);
+    /* Wait till all chunks are DONE. */
+    while (OPA_load_int(&lmt_extpkt->pcp.complete_cnt) > 0);
     PIP_DBG_PRINT("[%d] parallel-copy(s) DONE\n", myrank);
 
     /* Complete send request. */
@@ -224,12 +235,25 @@ int MPID_nem_lmt_pip_start_recv(MPIDI_VC_t * vc, MPIR_Request * rreq, MPL_IOV s_
     /* Parallel copy for large message. */
     else {
         char *sbuf_ptr = NULL, *rbuf_ptr = NULL;
-        int old_pcp_stat = MPID_NEM_LMT_PIP_PCP_P1_COPY;
         MPI_Aint copy_size = 0;
+        int offset = 0;
 
-        OPA_store_int(&lmt_extpkt->pcp.stat, MPID_NEM_LMT_PIP_PCP_P1_COPY);
+        /* Decide chunks by predefined chunk size. */
+        if (MPIR_CVAR_NEMESIS_LMT_PIP_PCP_CHUNKSIZE > 0) {
+            lmt_extpkt->pcp.chunk_size = MPIR_CVAR_NEMESIS_LMT_PIP_PCP_CHUNKSIZE;
+            lmt_extpkt->pcp.nchunks = data_size / lmt_extpkt->pcp.chunk_size;
+            if (data_size % lmt_extpkt->pcp.chunk_size)
+                lmt_extpkt->pcp.nchunks++;
+        }
+        /* Always divide into two chunks. */
+        else {
+            lmt_extpkt->pcp.nchunks = 2;
+            lmt_extpkt->pcp.chunk_size = data_size / 2;
+        }
 
         /* Sync with sender to initial parallel copy. */
+        OPA_store_int(&lmt_extpkt->pcp.complete_cnt, lmt_extpkt->pcp.nchunks);
+
         lmt_extpkt->pcp.receiver_buf = (uintptr_t) rreq->dev.user_buf;
         lmt_extpkt->pcp.receiver_count = rreq->dev.user_count;
         lmt_extpkt->pcp.receiver_dt = rreq->dev.datatype;
@@ -237,42 +261,34 @@ int MPID_nem_lmt_pip_start_recv(MPIDI_VC_t * vc, MPIR_Request * rreq, MPL_IOV s_
 
         MPID_nem_lmt_send_CTS(vc, rreq, NULL, 0);
 
-        copy_size = data_size / 2;
-        sbuf_ptr = (char *) lmt_extpkt->sender_buf;
-        rbuf_ptr = (char *) rreq->dev.user_buf;
+        offset = OPA_fetch_and_incr_int(&lmt_extpkt->pcp.offset);
+        while (offset < lmt_extpkt->pcp.nchunks) {
+            copy_size = lmt_extpkt->pcp.chunk_size;
+            if (offset == lmt_extpkt->pcp.nchunks - 1
+                    && data_size % lmt_extpkt->pcp.chunk_size) {
+                copy_size = data_size % lmt_extpkt->pcp.chunk_size;
+            }
+            sbuf_ptr = (char *) lmt_extpkt->sender_buf + send_true_lb +
+                lmt_extpkt->pcp.chunk_size * offset;
+            rbuf_ptr = (char *) rreq->dev.user_buf + recv_true_lb +
+                lmt_extpkt->pcp.chunk_size * offset;
 
-        PIP_DBG_PRINT("[%d] parallel-copy(r): copying part-1, data_size=%ld/%ld, "
-                      "sbuf_ptr=%p(%ld), rbuf_ptr=%p(%ld)\n", myrank, copy_size,
-                      data_size, sbuf_ptr, send_true_lb, rbuf_ptr, recv_true_lb);
+            PIP_DBG_PRINT("[%d] parallel-copy(r): copying part-%d/%d, data_size=%ld/%ld, "
+                          "sbuf_ptr=%p(%ld), rbuf_ptr=%p(%ld)\n", myrank, offset,
+                          lmt_extpkt->pcp.nchunks, copy_size, data_size,
+                          sbuf_ptr, send_true_lb, rbuf_ptr, recv_true_lb);
 
-        MPIR_Memcpy(((char *) rbuf_ptr + recv_true_lb), ((char *) sbuf_ptr + send_true_lb),
-                    copy_size);
+            MPIR_Memcpy((char *) rbuf_ptr, (char *) sbuf_ptr, copy_size);
 
-        /* Check whether sender is already copying part-2.
-         * Current stat can be PI_COPY | P2_COPY | SDONE.*/
-        old_pcp_stat = OPA_cas_int(&lmt_extpkt->pcp.stat, MPID_NEM_LMT_PIP_PCP_P1_COPY,
-                                   MPID_NEM_LMT_PIP_PCP_P2_COPY);
+            /* Finished a chunk. */
+            OPA_decr_int(&lmt_extpkt->pcp.complete_cnt);
 
-        /* Copy part-2 if sender does not start yet. */
-        if (old_pcp_stat == MPID_NEM_LMT_PIP_PCP_P1_COPY) {
-            sbuf_ptr += copy_size;
-            rbuf_ptr += copy_size;
-            copy_size = data_size - copy_size;
+            /* Get next chunk. */
+            offset = OPA_fetch_and_incr_int(&lmt_extpkt->pcp.offset);
+        };
 
-            PIP_DBG_PRINT("[%d] parallel-copy(r): copying part-2, data_size=%ld/%ld, "
-                          "sbuf_ptr=%p(%ld), rbuf_ptr=%p(%ld)\n", myrank, copy_size,
-                          data_size, sbuf_ptr, send_true_lb, rbuf_ptr, recv_true_lb);
-
-            MPIR_Memcpy(((char *) rbuf_ptr + recv_true_lb), ((char *) sbuf_ptr + send_true_lb),
-                        copy_size);
-        }
-        /* Otherwise wait sender finish. */
-        else {
-            while (OPA_load_int(&lmt_extpkt->pcp.stat) != MPID_NEM_LMT_PIP_PCP_SDONE);
-        }
-
-        /* entire copy DONE. */
-        OPA_store_int(&lmt_extpkt->pcp.stat, MPID_NEM_LMT_PIP_PCP_DONE);
+        /* Wait till all chunks are DONE. */
+        while (OPA_load_int(&lmt_extpkt->pcp.complete_cnt) > 0);
         PIP_DBG_PRINT("[%d] parallel-copy(r) DONE\n", myrank);
     }
 

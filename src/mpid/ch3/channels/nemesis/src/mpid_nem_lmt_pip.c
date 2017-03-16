@@ -33,7 +33,8 @@ cvars:
       description : >-
         Divide message into multiple chunks each with this size in parallel-copy
         method for intranode PIP LMT implementation, set to 0 to always divide
-        into two chunks.
+        into two chunks. If a message is larger than pcp threshold but smaller
+        than chunk size, then divide it into two chunks.
 
 === END_MPI_T_CVAR_INFO_BLOCK ===
 */
@@ -148,8 +149,7 @@ int MPID_nem_lmt_pip_start_send(MPIDI_VC_t * vc, MPIR_Request * req, MPL_IOV r_c
     offset = OPA_fetch_and_incr_int(&lmt_extpkt->pcp.offset);
     while (offset < lmt_extpkt->pcp.nchunks) {
         copy_size = lmt_extpkt->pcp.chunk_size;
-        if (offset == lmt_extpkt->pcp.nchunks - 1
-                && data_size % lmt_extpkt->pcp.chunk_size) {
+        if (offset == lmt_extpkt->pcp.nchunks - 1 && data_size % lmt_extpkt->pcp.chunk_size) {
             copy_size = data_size % lmt_extpkt->pcp.chunk_size;
         }
         sbuf_ptr = (char *) lmt_extpkt->sender_buf + send_true_lb +
@@ -239,7 +239,8 @@ int MPID_nem_lmt_pip_start_recv(MPIDI_VC_t * vc, MPIR_Request * rreq, MPL_IOV s_
         int offset = 0;
 
         /* Decide chunks by predefined chunk size. */
-        if (MPIR_CVAR_NEMESIS_LMT_PIP_PCP_CHUNKSIZE > 0) {
+        if (MPIR_CVAR_NEMESIS_LMT_PIP_PCP_CHUNKSIZE > 0 &&
+            MPIR_CVAR_NEMESIS_LMT_PIP_PCP_CHUNKSIZE < data_size) {
             lmt_extpkt->pcp.chunk_size = MPIR_CVAR_NEMESIS_LMT_PIP_PCP_CHUNKSIZE;
             lmt_extpkt->pcp.nchunks = data_size / lmt_extpkt->pcp.chunk_size;
             if (data_size % lmt_extpkt->pcp.chunk_size)
@@ -264,8 +265,7 @@ int MPID_nem_lmt_pip_start_recv(MPIDI_VC_t * vc, MPIR_Request * rreq, MPL_IOV s_
         offset = OPA_fetch_and_incr_int(&lmt_extpkt->pcp.offset);
         while (offset < lmt_extpkt->pcp.nchunks) {
             copy_size = lmt_extpkt->pcp.chunk_size;
-            if (offset == lmt_extpkt->pcp.nchunks - 1
-                    && data_size % lmt_extpkt->pcp.chunk_size) {
+            if (offset == lmt_extpkt->pcp.nchunks - 1 && data_size % lmt_extpkt->pcp.chunk_size) {
                 copy_size = data_size % lmt_extpkt->pcp.chunk_size;
             }
             sbuf_ptr = (char *) lmt_extpkt->sender_buf + send_true_lb +

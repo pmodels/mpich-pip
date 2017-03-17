@@ -51,23 +51,26 @@ int MPID_nem_barrier_vars_init (MPID_nem_barrier_vars_t *barrier_region);
 /* PIP parallel copy structure.
  * Allocated at sender init and freed when copy is done. */
 typedef struct MPID_nem_lmt_pip_pcp {
-    /* receiver fill at RTS arrival. */
+    /* Basic components to process parallel copy */
+    /* Sender fills at Init. */
+    uintptr_t sender_buf;
+    MPI_Datatype sender_dt;
+    MPI_Aint sender_count;
+
+    /* Receiver fills at RTS arrival. */
     uintptr_t receiver_buf;
     MPI_Datatype receiver_dt;
     MPI_Aint receiver_count;
+
+    /* Synchronizing components. */
     int nchunks;
     MPI_Aint chunk_size;
-
-    /* updated by both sides. */
     OPA_int_t offset; /* fetch_and_op(offset) to get next chunk */
     OPA_int_t complete_cnt; /* increase once finished a chunk */
 } MPID_nem_lmt_pip_pcp_t;
 
 typedef struct MPID_nem_pkt_lmt_rts_pipext
 {
-    uintptr_t sender_buf;
-    MPI_Datatype sender_dt;
-    MPI_Aint sender_count;
     MPID_nem_lmt_pip_pcp_t pcp;
 } MPID_nem_pkt_lmt_rts_pipext_t;
 #endif

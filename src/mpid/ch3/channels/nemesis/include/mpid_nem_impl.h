@@ -48,9 +48,24 @@ int MPID_nem_barrier_vars_init (MPID_nem_barrier_vars_t *barrier_region);
 
 #ifdef HAVE_PIP
 
+typedef struct MPID_nem_lmt_pip_pcp_noncontig_chunk {
+    MPI_Aint offset;
+    MPI_Aint size;
+} MPID_nem_lmt_pip_pcp_noncontig_block_t;
+
+typedef enum {
+    MPID_NEM_LMT_PIP_PCP_DISABLED,
+    MPID_NEM_LMT_PIP_PCP_CONTIG_CHUNKED,
+    MPID_NEM_LMT_PIP_PCP_NONCONTIG_SENDER_CHUNKED,
+    MPID_NEM_LMT_PIP_PCP_NONCONTIG_RECEIVER_CHUNKED,
+    MPID_NEM_LMT_PIP_PCP_NONCONTIG_SYMM_CHUNKED
+} MPID_nem_lmt_pip_pcp_type;
+
 /* PIP parallel copy structure.
  * Allocated at sender init and freed when copy is done. */
 typedef struct MPID_nem_lmt_pip_pcp {
+    MPID_nem_lmt_pip_pcp_type type;
+
     /* Basic components to process parallel copy */
     /* Sender fills at Init. */
     uintptr_t sender_buf;
@@ -65,6 +80,10 @@ typedef struct MPID_nem_lmt_pip_pcp {
     /* Synchronizing components. */
     int nchunks;
     MPI_Aint chunk_size;
+    int nblocks;
+    MPID_nem_lmt_pip_pcp_noncontig_block_t *noncontig_blocks;
+    int *block_chunks; /* start block id of each chunk */
+
     OPA_int_t offset; /* fetch_and_op(offset) to get next chunk */
     OPA_int_t complete_cnt; /* increase once finished a chunk */
 } MPID_nem_lmt_pip_pcp_t;

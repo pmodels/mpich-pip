@@ -97,6 +97,38 @@ static int set_eager_threshold(MPIR_Comm *comm_ptr, MPIR_Info *info, void *state
 
 
 #undef FUNCNAME
+#define FUNCNAME set_symm_datatype
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+static int set_symm_datatype(MPIR_Comm *comm_ptr, MPIR_Info *info, void *state)
+{
+    int mpi_errno = MPI_SUCCESS;
+    char *endptr = NULL;
+    MPIR_FUNC_TERSE_STATE_DECL(MPID_STATE_MPIDI_CH3_SET_SYMM_DATATYPE);
+    MPIR_FUNC_TERSE_ENTER(MPID_STATE_MPIDI_CH3_SET_SYMM_DATATYPE);
+
+    if (info != NULL) {
+        if (!strncmp(info->value, "true", strlen("true"))) {
+            comm_ptr->dev.is_symm_datatype = TRUE;
+        }
+        else if (!strncmp(info->value, "false", strlen("false"))) {
+            comm_ptr->dev.is_symm_datatype = FALSE;
+        }
+        else {
+            MPIR_ERR_CHKANDJUMP1(*endptr, mpi_errno, MPI_ERR_ARG,
+                                 "**infohintparse", "**infohintparse %s",
+                                 info->key);
+        }
+    }
+
+ fn_exit:
+    MPIR_FUNC_TERSE_EXIT(MPID_STATE_MPIDI_CH3_SET_SYMM_DATATYPE);
+    return mpi_errno;
+ fn_fail:
+    goto fn_exit;
+}
+
+#undef FUNCNAME
 #define FUNCNAME MPID_Init
 #undef FCNAME
 #define FCNAME MPL_QUOTE(FUNCNAME)
@@ -347,6 +379,11 @@ int MPID_Init(int *argc, char ***argv, int requested, int *provided,
 
     mpi_errno = MPIR_Comm_register_hint("eager_rendezvous_threshold",
                                         set_eager_threshold,
+                                        NULL);
+    if (mpi_errno) MPIR_ERR_POP(mpi_errno);
+
+    mpi_errno = MPIR_Comm_register_hint("symm_datatype",
+                                        set_symm_datatype,
                                         NULL);
     if (mpi_errno) MPIR_ERR_POP(mpi_errno);
 

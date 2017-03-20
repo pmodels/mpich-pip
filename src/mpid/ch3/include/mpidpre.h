@@ -185,6 +185,9 @@ typedef struct MPIDI_CH3I_comm
                              * disconnected as a part of
                              * MPI_COMM_DISCONNECT; FALSE otherwise. */
 
+    int is_symm_datatype;   /* set to TRUE if all communication on this communicator
+                             * use symmetric datatype on all involved processes.*/
+
     struct MPIDI_VCRT *vcrt;          /* virtual connecton reference table */
     struct MPIDI_VCRT *local_vcrt;    /* local virtual connecton reference table */
 

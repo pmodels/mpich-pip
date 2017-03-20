@@ -451,6 +451,8 @@ int comm_created(MPIR_Comm *comm, void *param)
     /* Initialize the last acked failure to -1 */
     comm->dev.last_ack_rank = -1;
 
+    comm->dev.is_symm_datatype = FALSE;
+
     COMM_ADD(comm);
 
  fn_exit:

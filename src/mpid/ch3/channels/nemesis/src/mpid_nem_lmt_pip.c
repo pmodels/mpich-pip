@@ -83,6 +83,14 @@ static int myrank = -1;         /* debug purpose */
 #define PIP_DBG_PRINT(str,...) do {} while (0)
 #endif
 
+#define LMT_PIP_PROFILING
+#ifdef LMT_PIP_PROFILING
+double lmt_pip_prof_gen_datatype_timer = 0.0;
+int lmt_pip_prof_lmt_gen_datatype_cnt = 0;
+int lmt_pip_prof_noncontig_nchunks = 0;
+int lmt_pip_prof_lmt_noncontig_cnt = 0;
+#endif
+
 /* called in MPID_nem_lmt_RndvSend */
 #undef FUNCNAME
 #define FUNCNAME MPID_nem_lmt_pip_initiate_lmt
@@ -152,6 +160,44 @@ int MPID_nem_lmt_pip_vc_terminated(MPIDI_VC_t * vc)
     return mpi_errno;
 }
 
+#define LMT_PIP_SHORT_COPY_CNT (16)
+/* Checked address alignment (copied from veccpy.h). */
+#define LMT_PIP_ALIGN8_TEST(p0,p1) ((((MPI_Aint)(uintptr_t) p0 | (MPI_Aint)(uintptr_t) p1) & 0x7) == 0)
+#define LMT_PIP_ALIGN4_TEST(p0,p1) ((((MPI_Aint)(uintptr_t) p0 | (MPI_Aint)(uintptr_t) p1) & 0x3) == 0)
+
+#undef FUNCNAME
+#define FUNCNAME lmt_pip_fast_copy
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+static inline void lmt_pip_block_copy(void *rbuf_ptr, void *sbuf_ptr, int blk_cnt, MPI_Aint el_size)
+{
+    int i;
+
+    /* Try aligned data move for short data */
+    if (blk_cnt <= LMT_PIP_SHORT_COPY_CNT) {
+        if (el_size == 8 && LMT_PIP_ALIGN8_TEST(sbuf_ptr, rbuf_ptr)) {
+            int64_t *dest = (int64_t *) rbuf_ptr, *src = (int64_t *) sbuf_ptr;
+            for (i = 0; i < blk_cnt; i++)
+                dest[i] = src[i];
+            return;
+        }
+        else if (el_size == 4 && LMT_PIP_ALIGN4_TEST(sbuf_ptr, rbuf_ptr)) {
+            int32_t *dest = (int32_t *) rbuf_ptr, *src = (int32_t *) sbuf_ptr;
+            for (i = 0; i < blk_cnt; i++)
+                dest[i] = src[i];
+            return;
+        }
+        else if (el_size == 2) {
+            int16_t *dest = (int16_t *) rbuf_ptr, *src = (int16_t *) sbuf_ptr;
+            for (i = 0; i < blk_cnt; i++)
+                dest[i] = src[i];
+            return;
+        }
+    }
+
+    MPIR_Memcpy(rbuf_ptr, sbuf_ptr, blk_cnt * el_size);
+}
+
 #undef FUNCNAME
 #define FUNCNAME lmt_pip_copy_nchunked_contig
 #undef FCNAME
@@ -204,6 +250,7 @@ static inline void lmt_pip_copy_nchunked_noncontig(MPID_nem_pkt_lmt_rts_pipext_t
     MPI_Aint copy_size = 0, contig_offset = 0;
     int cur_chunk = 0, copied = 0;
     int cur_blk = 0, blk_sta = 0, blk_end = 0;
+    MPID_nem_lmt_pip_pcp_noncontig_block_t *block = NULL;
 
     MPIR_FUNC_VERBOSE_STATE_DECL(LMT_PIP_COPY_NCHUNKED_NONCONTIG);
     MPIR_FUNC_VERBOSE_ENTER(LMT_PIP_COPY_NCHUNKED_NONCONTIG);
@@ -224,35 +271,38 @@ static inline void lmt_pip_copy_nchunked_noncontig(MPID_nem_pkt_lmt_rts_pipext_t
         case MPID_NEM_LMT_PIP_PCP_NONCONTIG_SENDER_CHUNKED:
             {
                 for (cur_blk = blk_sta; cur_blk <= blk_end; cur_blk++) {
-                    copy_size = lmt_extpkt->pcp.noncontig_blocks[cur_blk].size;
+                    block = &lmt_extpkt->pcp.noncontig_blocks[cur_blk];
+                    copy_size = block->blk_cnt * block->el_size;
                     contig_offset = copy_size * cur_blk;
-                    sbuf_ptr = sbuf + lmt_extpkt->pcp.noncontig_blocks[cur_blk].offset;
+                    sbuf_ptr = sbuf + block->offset;
                     rbuf_ptr = rbuf + contig_offset;
 
-                    MPIR_Memcpy(rbuf_ptr, sbuf_ptr, copy_size);
+                    lmt_pip_block_copy(rbuf_ptr, sbuf_ptr, block->blk_cnt, block->el_size);
                 }
             }
             break;
         case MPID_NEM_LMT_PIP_PCP_NONCONTIG_RECEIVER_CHUNKED:
             {
                 for (cur_blk = blk_sta; cur_blk <= blk_end; cur_blk++) {
-                    copy_size = lmt_extpkt->pcp.noncontig_blocks[cur_blk].size;
+                    block = &lmt_extpkt->pcp.noncontig_blocks[cur_blk];
+                    copy_size = block->blk_cnt * block->el_size;
                     contig_offset = copy_size * cur_blk;
                     sbuf_ptr = sbuf + contig_offset;
-                    rbuf_ptr = rbuf + lmt_extpkt->pcp.noncontig_blocks[cur_blk].offset;
+                    rbuf_ptr = rbuf + block->offset;
 
-                    MPIR_Memcpy(rbuf_ptr, sbuf_ptr, copy_size);
+                    lmt_pip_block_copy(rbuf_ptr, sbuf_ptr, block->blk_cnt, block->el_size);
                 }
             }
             break;
         case MPID_NEM_LMT_PIP_PCP_NONCONTIG_SYMM_CHUNKED:
             {
                 for (cur_blk = blk_sta; cur_blk <= blk_end; cur_blk++) {
-                    copy_size = lmt_extpkt->pcp.noncontig_blocks[cur_blk].size;
-                    sbuf_ptr = sbuf + lmt_extpkt->pcp.noncontig_blocks[cur_blk].offset;
-                    rbuf_ptr = rbuf + lmt_extpkt->pcp.noncontig_blocks[cur_blk].offset;
+                    block = &lmt_extpkt->pcp.noncontig_blocks[cur_blk];
+                    copy_size = block->blk_cnt * block->el_size;
+                    sbuf_ptr = sbuf + block->offset;
+                    rbuf_ptr = rbuf + block->offset;
 
-                    MPIR_Memcpy(rbuf_ptr, sbuf_ptr, copy_size);
+                    lmt_pip_block_copy(rbuf_ptr, sbuf_ptr, block->blk_cnt, block->el_size);
                 }
 
                 PIP_DBG_PRINT
@@ -292,7 +342,7 @@ static inline void lmt_pip_copy_nchunked_noncontig(MPID_nem_pkt_lmt_rts_pipext_t
 #undef FCNAME
 #define FCNAME MPL_QUOTE(FUNCNAME)
 static inline int lmt_pip_gen_datatype_blocks(void *buf, MPI_Aint count, MPI_Datatype datatype,
-                                              int *nblks_ptr,
+                                              MPI_Aint data_size, int *nblks_ptr,
                                               MPID_nem_lmt_pip_pcp_noncontig_block_t ** blks_ptr,
                                               int *nchunks_ptr, int **blk_chunks_ptr)
 {
@@ -305,6 +355,10 @@ static inline int lmt_pip_gen_datatype_blocks(void *buf, MPI_Aint count, MPI_Dat
     int last_kind = 0;
     struct MPIDU_Segment *segment_ptr = NULL;
     int nchunks = 0, *blk_chunks = NULL;
+
+#ifdef LMT_PIP_PROFILING
+    double lmt_pip_prof_gen_datatype_timer_sta = MPI_Wtime();
+#endif
 
     MPIR_FUNC_VERBOSE_STATE_DECL(LMT_PIP_GEN_DATATYPE_BLOCKS);
     MPIR_FUNC_VERBOSE_ENTER(LMT_PIP_GEN_DATATYPE_BLOCKS);
@@ -348,16 +402,20 @@ static inline int lmt_pip_gen_datatype_blocks(void *buf, MPI_Aint count, MPI_Dat
 
     do {
         DLOOP_Offset stride = 0;
+        MPI_Aint size = 0;
         blks[cur_blk].offset = cur_offset;
 
         if (last_kind & DLOOP_KIND_VECTOR) {
-            blks[cur_blk].size = last_loop_p->el_size * last_loop_p->loop_params.v_t.blocksize;
+            blks[cur_blk].el_size = last_loop_p->el_size;
+            blks[cur_blk].blk_cnt = last_loop_p->loop_params.v_t.blocksize;
             stride = last_loop_p->loop_params.v_t.stride;
+            size = blks[cur_blk].el_size * blks[cur_blk].blk_cnt;
         }
         /* DLOOP_KIND_CONTIG */
         else {
-            blks[cur_blk].size = last_loop_p->el_size * last_loop_p->loop_params.c_t.count;
-            stride = blks[cur_blk].size;
+            blks[cur_blk].el_size = last_loop_p->el_size;
+            blks[cur_blk].blk_cnt = last_loop_p->loop_params.c_t.count;
+            size = stride = blks[cur_blk].el_size * blks[cur_blk].blk_cnt;
         }
 
         if ((cur_blk + 1) % last_loop_p->loop_params.count != 0) {
@@ -377,16 +435,17 @@ static inline int lmt_pip_gen_datatype_blocks(void *buf, MPI_Aint count, MPI_Dat
 
             if (segment_ptr->stackelm[dp].loop_p->kind & DLOOP_KIND_VECTOR) {
                 cur_offset += (segment_ptr->stackelm[dp].loop_p->loop_params.v_t.stride +
-                               blks[cur_blk].size - segment_ptr->stackelm[dp].loop_p->el_extent);
+                               size - segment_ptr->stackelm[dp].loop_p->el_extent);
             }
             /* DLOOP_KIND_CONTIG */
             else {
-                cur_offset += blks[cur_blk].size;
+                cur_offset += size;
             }
         }
 
-        if (MPIR_CVAR_NEMESIS_LMT_PIP_PCP_NONCONTIG_CHUNKSIZE > 0) {
-            cur_chunk_size += blks[cur_blk].size;
+        if (MPIR_CVAR_NEMESIS_LMT_PIP_PCP_NONCONTIG_CHUNKSIZE > 0 &&
+                data_size > MPIR_CVAR_NEMESIS_LMT_PIP_PCP_NONCONTIG_CHUNKSIZE) {
+            cur_chunk_size += size;
             if (cur_blk < nblks - 1 &&
                 cur_chunk_size >= MPIR_CVAR_NEMESIS_LMT_PIP_PCP_NONCONTIG_CHUNKSIZE) {
                 cur_chunk_size = 0;
@@ -404,6 +463,11 @@ static inline int lmt_pip_gen_datatype_blocks(void *buf, MPI_Aint count, MPI_Dat
     (*blks_ptr) = blks;
     (*nchunks_ptr) = nchunks;
     (*blk_chunks_ptr) = blk_chunks;
+
+#ifdef LMT_PIP_PROFILING
+    lmt_pip_prof_gen_datatype_timer += (MPI_Wtime() - lmt_pip_prof_gen_datatype_timer_sta);
+    lmt_pip_prof_lmt_gen_datatype_cnt++;
+#endif
 
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(LMT_PIP_GEN_DATATYPE_BLOCKS);
@@ -511,32 +575,32 @@ int MPID_nem_lmt_pip_start_recv(MPIDI_VC_t * vc, MPIR_Request * rreq, MPL_IOV s_
             lmt_extpkt->pcp.type = MPID_NEM_LMT_PIP_PCP_CONTIG_CHUNKED;
     }
     else if (MPIR_CVAR_NEMESIS_LMT_PIP_PCP_NONCONTIG_THRESHOLD > 0 &&
-             data_size >= MPIR_CVAR_NEMESIS_LMT_PIP_PCP_NONCONTIG_THRESHOLD) {
+             data_size > MPIR_CVAR_NEMESIS_LMT_PIP_PCP_NONCONTIG_THRESHOLD) {
 
         if (recv_iscontig) {
             /* Generate noncontig blocks from send buffer. */
             lmt_pip_gen_datatype_blocks((void *) lmt_extpkt->pcp.sender_buf,
                                         lmt_extpkt->pcp.sender_count,
-                                        lmt_extpkt->pcp.sender_dt, &nblks, &noncontig_blks,
-                                        &nchunks, &blk_chunks);
-            if (nchunks > 0 && blk_chunks != NULL)
+                                        lmt_extpkt->pcp.sender_dt, data_size, &nblks,
+                                        &noncontig_blks, &nchunks, &blk_chunks);
+            if (nchunks > 1 && blk_chunks != NULL)
                 lmt_extpkt->pcp.type = MPID_NEM_LMT_PIP_PCP_NONCONTIG_SENDER_CHUNKED;
         }
         else if (send_iscontig) {
             /* Generate noncontig blocks from receive buffer. */
             lmt_pip_gen_datatype_blocks(rreq->dev.user_buf, rreq->dev.user_count,
-                                        rreq->dev.datatype, &nblks, &noncontig_blks,
+                                        rreq->dev.datatype, data_size, &nblks, &noncontig_blks,
                                         &nchunks, &blk_chunks);
-            if (nchunks > 0 && blk_chunks != NULL)
+            if (nchunks > 1 && blk_chunks != NULL)
                 lmt_extpkt->pcp.type = MPID_NEM_LMT_PIP_PCP_NONCONTIG_RECEIVER_CHUNKED;
         }
         /* If noncontig on both sides, check if user passes symmetric hint. */
         else if (rreq->comm->dev.is_symm_datatype == TRUE) {
             /* Generate noncontig blocks from receive buffer, used in send buffer as well. */
             lmt_pip_gen_datatype_blocks(rreq->dev.user_buf, rreq->dev.user_count,
-                                        rreq->dev.datatype, &nblks, &noncontig_blks,
+                                        rreq->dev.datatype, data_size, &nblks, &noncontig_blks,
                                         &nchunks, &blk_chunks);
-            if (nchunks > 0 && blk_chunks != NULL)
+            if (nchunks > 1 && blk_chunks != NULL)
                 lmt_extpkt->pcp.type = MPID_NEM_LMT_PIP_PCP_NONCONTIG_SYMM_CHUNKED;
         }
     }
@@ -616,20 +680,25 @@ int MPID_nem_lmt_pip_start_recv(MPIDI_VC_t * vc, MPIR_Request * rreq, MPL_IOV s_
                                             ((char *) lmt_extpkt->pcp.sender_buf + send_true_lb),
                                             ((char *) lmt_extpkt->pcp.receiver_buf + recv_true_lb),
                                             "r");
+
+#ifdef LMT_PIP_PROFILING
+            lmt_pip_prof_noncontig_nchunks += lmt_extpkt->pcp.nchunks;
+            lmt_pip_prof_lmt_noncontig_cnt++;
+#endif
         }
 
         /* Wait till all chunks are DONE. */
         while (OPA_load_int(&lmt_extpkt->pcp.complete_cnt) > 0);
         PIP_DBG_PRINT("[%d] parallel-copy(r) DONE\n", myrank);
-
-        /* Note lmt_extpkt->pcp might already be freed by sender. */
-        PIP_DBG_PRINT("[%d] parallel-copy(r): free noncontig_blks=%p, blk_chunks=%p\n", myrank,
-                      noncontig_blks, blk_chunks);
-        if (noncontig_blks)
-            MPL_free(noncontig_blks);
-        if (blk_chunks)
-            MPL_free(blk_chunks);
     }
+
+    /* Note lmt_extpkt->pcp might already be freed by sender. */
+    PIP_DBG_PRINT("[%d] parallel-copy(r): free noncontig_blks=%p, blk_chunks=%p\n", myrank,
+                  noncontig_blks, blk_chunks);
+    if (noncontig_blks)
+        MPL_free(noncontig_blks);
+    if (blk_chunks)
+        MPL_free(blk_chunks);
 
     /* DONE, notify sender.
      * Note that it is needed also in parallel copy, because we need ensure
@@ -704,8 +773,8 @@ int MPID_nem_lmt_pip_done_send(MPIDI_VC_t * vc, MPIR_Request * sreq)
     /* Complete send request. */
     PIP_DBG_PRINT("[%d] %s: complete sreq %p/0x%x, free extpkt=%p, complete_cnt=%d\n",
                   myrank, __FUNCTION__, sreq, sreq->handle, sreq->ch.lmt_extpkt,
-                  OPA_load_int(&((MPID_nem_pkt_lmt_rts_pipext_t *) sreq->ch.lmt_extpkt)->pcp.
-                               complete_cnt));
+                  OPA_load_int(&((MPID_nem_pkt_lmt_rts_pipext_t *) sreq->ch.lmt_extpkt)->
+                               pcp.complete_cnt));
 
     MPIR_Assert(sreq->ch.lmt_extpkt);
     MPL_free(sreq->ch.lmt_extpkt);

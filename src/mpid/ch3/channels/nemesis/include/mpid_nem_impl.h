@@ -50,7 +50,8 @@ int MPID_nem_barrier_vars_init (MPID_nem_barrier_vars_t *barrier_region);
 
 typedef struct MPID_nem_lmt_pip_pcp_noncontig_chunk {
     MPI_Aint offset;
-    MPI_Aint size;
+    MPI_Aint blk_cnt;
+    MPI_Aint el_size;
 } MPID_nem_lmt_pip_pcp_noncontig_block_t;
 
 typedef enum {

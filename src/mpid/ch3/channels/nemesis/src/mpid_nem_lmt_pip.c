@@ -91,6 +91,120 @@ int lmt_pip_prof_noncontig_nchunks = 0;
 int lmt_pip_prof_lmt_noncontig_cnt = 0;
 #endif
 
+typedef struct lmt_pip_datatype_blks_elt {
+    MPL_UT_hash_handle hh;
+    MPI_Datatype datatype;
+    int nblocks;
+    MPID_nem_lmt_pip_pcp_noncontig_block_t *blocks;
+} lmt_pip_datatype_blks_elt_t;
+
+static lmt_pip_datatype_blks_elt_t *lmt_pip_cached_dtblks = NULL;
+
+/* Free datatype cache when such datatype is freed. */
+#undef FUNCNAME
+#define FUNCNAME MPID_nem_lmt_pip_free_dtblk
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+void MPID_nem_lmt_pip_free_dtblk(const MPI_Datatype datatype)
+{
+    lmt_pip_datatype_blks_elt_t *dtblk = NULL;
+
+    MPIR_FUNC_TERSE_STATE_DECL(MPID_NEM_LMT_PIP_FREE_DTBLK);
+    MPIR_FUNC_TERSE_ENTER(MPID_NEM_LMT_PIP_FREE_DTBLK);
+
+    if (lmt_pip_cached_dtblks) {
+        MPL_HASH_FIND(hh, lmt_pip_cached_dtblks, &datatype, sizeof(MPI_Datatype), dtblk);
+        if (dtblk != NULL) {
+            PIP_DBG_PRINT("[%d] freed dtblk datatype 0x%lx, blocks=%p\n", myrank, datatype, blocks);
+
+            MPL_HASH_DEL(lmt_pip_cached_dtblks, dtblk);
+            MPL_free(dtblk->blocks);
+            MPL_free(dtblk);
+        }
+    }
+    MPIR_FUNC_TERSE_EXIT(MPID_NEM_LMT_PIP_FREE_DTBLK);
+}
+
+/* Destroy all datatype caches at finalize. */
+#undef FUNCNAME
+#define FUNCNAME lmt_pip_destroy_cached_dtblks
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+static inline int lmt_pip_destroy_dtblks(void *ignore)
+{
+    int mpi_errno = MPI_SUCCESS;
+    lmt_pip_datatype_blks_elt_t *cur_dtblk = NULL, *tmp = NULL;
+
+    MPIR_FUNC_TERSE_STATE_DECL(LMT_PIP_DESTROY_DTBLKS);
+    MPIR_FUNC_TERSE_ENTER(LMT_PIP_DESTROY_DTBLKS);
+
+    PIP_DBG_PRINT("[%d] dtblks_destroy start\n", myrank);
+
+    if (lmt_pip_cached_dtblks) {
+        MPL_HASH_ITER(hh, lmt_pip_cached_dtblks, cur_dtblk, tmp) {
+            PIP_DBG_PRINT("[%d] dtblks_destroy: freed dtblk datatype 0x%lx, blocks=%p\n",
+                          myrank, cur_dtblk->datatype, cur_dtblk->blocks);
+            MPL_HASH_DEL(lmt_pip_cached_dtblks, cur_dtblk);
+            MPL_free(cur_dtblk->blocks);
+            MPL_free(cur_dtblk);
+        }
+    }
+
+    MPIR_FUNC_TERSE_EXIT(LMT_PIP_DESTROY_DTBLKS);
+    return mpi_errno;
+}
+
+/* The datatype blocks is stored in a uthash, with datatype handle as key and
+ * the unfolded blocks responsible as the value. */
+#undef FUNCNAME
+#define FUNCNAME lmt_pip_cache_dtblk
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+static inline int lmt_pip_cache_dtblk(const MPI_Datatype datatype, int nblocks,
+                                      MPID_nem_lmt_pip_pcp_noncontig_block_t * blocks)
+{
+    int mpi_errno = MPI_SUCCESS;
+    lmt_pip_datatype_blks_elt_t *dtblk = NULL;
+    MPIR_FUNC_TERSE_STATE_DECL(LMT_PIP_CACHE_DTBLK);
+    MPIR_FUNC_TERSE_ENTER(LMT_PIP_CACHE_DTBLK);
+
+    if (lmt_pip_cached_dtblks == NULL) {
+        MPIR_Add_finalize(lmt_pip_destroy_dtblks, NULL, MPIR_FINALIZE_CALLBACK_PRIO - 1);
+    }
+
+    dtblk = MPL_malloc(sizeof(lmt_pip_datatype_blks_elt_t));
+    dtblk->datatype = datatype;
+    dtblk->nblocks = nblocks;
+    dtblk->blocks = blocks;
+
+    PIP_DBG_PRINT("[%d] cache dtblk datatype=0x%lx, blocks=%p\n", myrank, datatype, blocks);
+    MPL_HASH_ADD(hh, lmt_pip_cached_dtblks, datatype, sizeof(MPI_Datatype), dtblk);
+
+    MPIR_FUNC_TERSE_EXIT(LMT_PIP_CACHE_DTBLK);
+    return mpi_errno;
+}
+
+#undef FUNCNAME
+#define FUNCNAME lmt_pip_find_dtblk
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+static inline void lmt_pip_find_dtblk(const MPI_Datatype datatype, int *nblocks_ptr,
+                                      MPID_nem_lmt_pip_pcp_noncontig_block_t ** blocks_ptr)
+{
+    lmt_pip_datatype_blks_elt_t *dtblk = NULL;
+
+    MPIR_FUNC_TERSE_STATE_DECL(LMT_PIP_FIND_DTBLK);
+    MPIR_FUNC_TERSE_ENTER(LMT_PIP_FIND_DTBLK);
+
+    MPL_HASH_FIND(hh, lmt_pip_cached_dtblks, &datatype, sizeof(MPI_Datatype), dtblk);
+    if (dtblk) {
+        PIP_DBG_PRINT("[%d] found cached dtblk datatype=0x%lx, blocks=%p\n",
+                      myrank, datatype, dtblk->blocks);
+        (*nblocks_ptr) = dtblk->nblocks;
+        (*blocks_ptr) = dtblk->blocks;
+    }
+}
+
 /* called in MPID_nem_lmt_RndvSend */
 #undef FUNCNAME
 #define FUNCNAME MPID_nem_lmt_pip_initiate_lmt
@@ -338,22 +452,19 @@ static inline void lmt_pip_copy_nchunked_noncontig(MPID_nem_pkt_lmt_rts_pipext_t
 }
 
 #undef FUNCNAME
-#define FUNCNAME lmt_pip_gen_datatype_blocks
+#define FUNCNAME lmt_pip_gen_datatype_chunks
 #undef FCNAME
 #define FCNAME MPL_QUOTE(FUNCNAME)
-static inline int lmt_pip_gen_datatype_blocks(void *buf, MPI_Aint count, MPI_Datatype datatype,
+static inline int lmt_pip_gen_datatype_chunks(void *buf, MPI_Aint count, MPI_Datatype datatype,
                                               MPI_Aint data_size, int *nblks_ptr,
                                               MPID_nem_lmt_pip_pcp_noncontig_block_t ** blks_ptr,
                                               int *nchunks_ptr, int **blk_chunks_ptr)
 {
     int mpi_errno = MPI_SUCCESS;
-    int depth = 0, max_depth = 0;
     MPID_nem_lmt_pip_pcp_noncontig_block_t *blks = NULL;
     int nblks = 1, cur_blk = 0;
-    MPI_Aint cur_offset = 0, cur_chunk_size = 0;
+    MPI_Aint cur_offset = 0;
     struct DLOOP_Dataloop *last_loop_p = NULL;
-    int last_kind = 0;
-    struct MPIDU_Segment *segment_ptr = NULL;
     int nchunks = 0, *blk_chunks = NULL;
 
 #ifdef LMT_PIP_PROFILING
@@ -364,98 +475,124 @@ static inline int lmt_pip_gen_datatype_blocks(void *buf, MPI_Aint count, MPI_Dat
     MPIR_FUNC_VERBOSE_ENTER(LMT_PIP_GEN_DATATYPE_BLOCKS);
     MPIR_CHKPMEM_DECL(2);
 
-    segment_ptr = MPIDU_Segment_alloc();
-    MPIR_ERR_CHKANDJUMP1((segment_ptr == NULL), mpi_errno, MPI_ERR_OTHER,
-                         "**nomem", "**nomem %s", "MPIDU_Segment_alloc");
-    MPIDU_Segment_init(buf, count, datatype, segment_ptr, 0);
+    /* Check cached datatype blocks. */
+    lmt_pip_find_dtblk(datatype, &nblks, &blks);
 
-    for (depth = 0; depth < DLOOP_MAX_DATATYPE_DEPTH; depth++) {
-        int kind = segment_ptr->stackelm[depth].loop_p->kind;
+    /* If not found, unfold datatype blocks. */
+    if (nblks == 0 || blks == NULL) {
+        struct MPIDU_Segment *segment_ptr = NULL;
+        int last_kind = 0;
+        int depth = 0, max_depth = 0;
 
-        /* FIXME: The following routine does not support irregular structure. */
-        if (!(kind & DLOOP_KIND_CONTIG) && !(kind & DLOOP_KIND_VECTOR)) {
-            (*nblks_ptr) = 0;
-            (*blks_ptr) = NULL;
-            goto fn_exit;
-        }
+        segment_ptr = MPIDU_Segment_alloc();
+        MPIR_ERR_CHKANDJUMP1((segment_ptr == NULL), mpi_errno, MPI_ERR_OTHER,
+                             "**nomem", "**nomem %s", "MPIDU_Segment_alloc");
+        MPIDU_Segment_init(buf, count, datatype, segment_ptr, 0);
 
-        nblks *= segment_ptr->stackelm[depth].loop_p->loop_params.count;
-        if (kind & DLOOP_FINAL_MASK) {
-            last_kind = kind;
-            break;
-        }
-    }
-    max_depth = depth;
+        for (depth = 0; depth < DLOOP_MAX_DATATYPE_DEPTH; depth++) {
+            int kind = segment_ptr->stackelm[depth].loop_p->kind;
 
-    MPIR_CHKPMEM_MALLOC(blks, MPID_nem_lmt_pip_pcp_noncontig_block_t *,
-                        sizeof(MPID_nem_lmt_pip_pcp_noncontig_block_t) * nblks,
-                        mpi_errno, "lmt PIP blks");
-    MPIR_CHKPMEM_MALLOC(blk_chunks, int *, sizeof(int) * nblks, mpi_errno, "lmt PIP blk_chunks");
-
-    cur_blk = 0;
-    cur_offset = 0;
-    last_loop_p = segment_ptr->stackelm[max_depth].loop_p;
-
-    nchunks = 1;        /* at least one chunk */
-    cur_chunk_size = 0;
-    blk_chunks[0] = 0;
-
-    do {
-        DLOOP_Offset stride = 0;
-        MPI_Aint size = 0;
-        blks[cur_blk].offset = cur_offset;
-
-        if (last_kind & DLOOP_KIND_VECTOR) {
-            blks[cur_blk].el_size = last_loop_p->el_size;
-            blks[cur_blk].blk_cnt = last_loop_p->loop_params.v_t.blocksize;
-            stride = last_loop_p->loop_params.v_t.stride;
-            size = blks[cur_blk].el_size * blks[cur_blk].blk_cnt;
-        }
-        /* DLOOP_KIND_CONTIG */
-        else {
-            blks[cur_blk].el_size = last_loop_p->el_size;
-            blks[cur_blk].blk_cnt = last_loop_p->loop_params.c_t.count;
-            size = stride = blks[cur_blk].el_size * blks[cur_blk].blk_cnt;
-        }
-
-        if ((cur_blk + 1) % last_loop_p->loop_params.count != 0) {
-            cur_offset += stride;
-        }
-        /* last chunk in last level */
-        else {
-            int dp, ck;
-            ck = cur_blk + 1;
-
-            for (dp = max_depth; dp > 0; dp--) {
-                DLOOP_Count loop_cnt = segment_ptr->stackelm[dp].loop_p->loop_params.count;
-                if (ck % loop_cnt != 0)
-                    break;
-                ck = ck / loop_cnt;
+            /* FIXME: The following routine does not support irregular structure. */
+            if (!(kind & DLOOP_KIND_CONTIG) && !(kind & DLOOP_KIND_VECTOR)) {
+                (*nblks_ptr) = 0;
+                (*blks_ptr) = NULL;
+                goto fn_exit;
             }
 
-            if (segment_ptr->stackelm[dp].loop_p->kind & DLOOP_KIND_VECTOR) {
-                cur_offset += (segment_ptr->stackelm[dp].loop_p->loop_params.v_t.stride +
-                               size - segment_ptr->stackelm[dp].loop_p->el_extent);
+            nblks *= segment_ptr->stackelm[depth].loop_p->loop_params.count;
+            if (kind & DLOOP_FINAL_MASK) {
+                last_kind = kind;
+                break;
+            }
+        }
+        max_depth = depth;
+
+        MPIR_CHKPMEM_MALLOC(blks, MPID_nem_lmt_pip_pcp_noncontig_block_t *,
+                            sizeof(MPID_nem_lmt_pip_pcp_noncontig_block_t) * nblks,
+                            mpi_errno, "lmt PIP blks");
+
+        cur_blk = 0;
+        cur_offset = 0;
+        last_loop_p = segment_ptr->stackelm[max_depth].loop_p;
+        do {
+            DLOOP_Offset stride = 0;
+            MPI_Aint size = 0;
+            blks[cur_blk].offset = cur_offset;
+
+            if (last_kind & DLOOP_KIND_VECTOR) {
+                blks[cur_blk].el_size = last_loop_p->el_size;
+                blks[cur_blk].blk_cnt = last_loop_p->loop_params.v_t.blocksize;
+                stride = last_loop_p->loop_params.v_t.stride;
+                size = blks[cur_blk].el_size * blks[cur_blk].blk_cnt;
             }
             /* DLOOP_KIND_CONTIG */
             else {
-                cur_offset += size;
+                blks[cur_blk].el_size = last_loop_p->el_size;
+                blks[cur_blk].blk_cnt = last_loop_p->loop_params.c_t.count;
+                size = stride = blks[cur_blk].el_size * blks[cur_blk].blk_cnt;
             }
-        }
 
-        if (MPIR_CVAR_NEMESIS_LMT_PIP_PCP_NONCONTIG_CHUNKSIZE > 0 &&
-                data_size > MPIR_CVAR_NEMESIS_LMT_PIP_PCP_NONCONTIG_CHUNKSIZE) {
-            cur_chunk_size += size;
-            if (cur_blk < nblks - 1 &&
-                cur_chunk_size >= MPIR_CVAR_NEMESIS_LMT_PIP_PCP_NONCONTIG_CHUNKSIZE) {
-                cur_chunk_size = 0;
-                blk_chunks[nchunks++] = cur_blk + 1;
+            if ((cur_blk + 1) % last_loop_p->loop_params.count != 0) {
+                cur_offset += stride;
             }
+            /* last chunk in last level */
+            else {
+                int dp, ck;
+                ck = cur_blk + 1;
+
+                for (dp = max_depth; dp > 0; dp--) {
+                    DLOOP_Count loop_cnt = segment_ptr->stackelm[dp].loop_p->loop_params.count;
+                    if (ck % loop_cnt != 0)
+                        break;
+                    ck = ck / loop_cnt;
+                }
+
+                if (segment_ptr->stackelm[dp].loop_p->kind & DLOOP_KIND_VECTOR) {
+                    cur_offset += (segment_ptr->stackelm[dp].loop_p->loop_params.v_t.stride +
+                                   size - segment_ptr->stackelm[dp].loop_p->el_extent);
+                }
+                /* DLOOP_KIND_CONTIG */
+                else {
+                    cur_offset += size;
+                }
+            }
+        } while (++cur_blk < nblks);
+
+        /* Cache for reuse */
+        mpi_errno = lmt_pip_cache_dtblk(datatype, nblks, blks);
+        if (mpi_errno != MPI_SUCCESS)
+            goto fn_fail;
+
+        if (segment_ptr != NULL)
+            MPIDU_Segment_free(segment_ptr);
+    }
+
+    /* Decide chunks by size and blocks */
+    {
+        MPI_Aint blk_sz;
+        int nblks_in_chunk;
+
+        MPIR_CHKPMEM_MALLOC(blk_chunks, int *, sizeof(int) * nblks, mpi_errno, "lmt PIP blk_chunks");
+
+        blk_sz = blks[0].el_size * blks[0].blk_cnt;
+        nblks_in_chunk = MPIR_CVAR_NEMESIS_LMT_PIP_PCP_NONCONTIG_CHUNKSIZE / blk_sz;
+        if (MPIR_CVAR_NEMESIS_LMT_PIP_PCP_NONCONTIG_CHUNKSIZE % blk_sz)
+            nblks_in_chunk++;
+
+        nchunks = 0;
+        cur_blk = 0;
+        if (MPIR_CVAR_NEMESIS_LMT_PIP_PCP_NONCONTIG_CHUNKSIZE > 0 &&
+            data_size > MPIR_CVAR_NEMESIS_LMT_PIP_PCP_NONCONTIG_CHUNKSIZE) {
+            do {
+                blk_chunks[nchunks++] = cur_blk;
+                cur_blk += nblks_in_chunk;
+            } while (cur_blk < nblks);
         }
-        else if (cur_blk == nblks / 2) {
-            blk_chunks[nchunks++] = cur_blk + 1;
+        else {
+            blk_chunks[nchunks++] = 0;
+            blk_chunks[nchunks++] = nblks / 2 + 1;
         }
-    } while (++cur_blk < nblks);
+    }
 
     MPIR_CHKPMEM_COMMIT();
 
@@ -471,9 +608,6 @@ static inline int lmt_pip_gen_datatype_blocks(void *buf, MPI_Aint count, MPI_Dat
 
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(LMT_PIP_GEN_DATATYPE_BLOCKS);
-    if (segment_ptr != NULL)
-        MPIDU_Segment_free(segment_ptr);
-
     return mpi_errno;
 
   fn_fail:
@@ -579,7 +713,7 @@ int MPID_nem_lmt_pip_start_recv(MPIDI_VC_t * vc, MPIR_Request * rreq, MPL_IOV s_
 
         if (recv_iscontig) {
             /* Generate noncontig blocks from send buffer. */
-            lmt_pip_gen_datatype_blocks((void *) lmt_extpkt->pcp.sender_buf,
+            lmt_pip_gen_datatype_chunks((void *) lmt_extpkt->pcp.sender_buf,
                                         lmt_extpkt->pcp.sender_count,
                                         lmt_extpkt->pcp.sender_dt, data_size, &nblks,
                                         &noncontig_blks, &nchunks, &blk_chunks);
@@ -588,7 +722,7 @@ int MPID_nem_lmt_pip_start_recv(MPIDI_VC_t * vc, MPIR_Request * rreq, MPL_IOV s_
         }
         else if (send_iscontig) {
             /* Generate noncontig blocks from receive buffer. */
-            lmt_pip_gen_datatype_blocks(rreq->dev.user_buf, rreq->dev.user_count,
+            lmt_pip_gen_datatype_chunks(rreq->dev.user_buf, rreq->dev.user_count,
                                         rreq->dev.datatype, data_size, &nblks, &noncontig_blks,
                                         &nchunks, &blk_chunks);
             if (nchunks > 1 && blk_chunks != NULL)
@@ -597,7 +731,7 @@ int MPID_nem_lmt_pip_start_recv(MPIDI_VC_t * vc, MPIR_Request * rreq, MPL_IOV s_
         /* If noncontig on both sides, check if user passes symmetric hint. */
         else if (rreq->comm->dev.is_symm_datatype == TRUE) {
             /* Generate noncontig blocks from receive buffer, used in send buffer as well. */
-            lmt_pip_gen_datatype_blocks(rreq->dev.user_buf, rreq->dev.user_count,
+            lmt_pip_gen_datatype_chunks(rreq->dev.user_buf, rreq->dev.user_count,
                                         rreq->dev.datatype, data_size, &nblks, &noncontig_blks,
                                         &nchunks, &blk_chunks);
             if (nchunks > 1 && blk_chunks != NULL)
@@ -692,11 +826,10 @@ int MPID_nem_lmt_pip_start_recv(MPIDI_VC_t * vc, MPIR_Request * rreq, MPL_IOV s_
         PIP_DBG_PRINT("[%d] parallel-copy(r) DONE\n", myrank);
     }
 
-    /* Note lmt_extpkt->pcp might already be freed by sender. */
-    PIP_DBG_PRINT("[%d] parallel-copy(r): free noncontig_blks=%p, blk_chunks=%p\n", myrank,
+    /* Note lmt_extpkt->pcp might already be freed by sender.
+     * noncontig_blks is freed at type_free or finalize.*/
+    PIP_DBG_PRINT("[%d] parallel-copy(r): free blk_chunks=%p\n", myrank,
                   noncontig_blks, blk_chunks);
-    if (noncontig_blks)
-        MPL_free(noncontig_blks);
     if (blk_chunks)
         MPL_free(blk_chunks);
 
@@ -773,8 +906,8 @@ int MPID_nem_lmt_pip_done_send(MPIDI_VC_t * vc, MPIR_Request * sreq)
     /* Complete send request. */
     PIP_DBG_PRINT("[%d] %s: complete sreq %p/0x%x, free extpkt=%p, complete_cnt=%d\n",
                   myrank, __FUNCTION__, sreq, sreq->handle, sreq->ch.lmt_extpkt,
-                  OPA_load_int(&((MPID_nem_pkt_lmt_rts_pipext_t *) sreq->ch.lmt_extpkt)->
-                               pcp.complete_cnt));
+                  OPA_load_int(&((MPID_nem_pkt_lmt_rts_pipext_t *) sreq->ch.lmt_extpkt)->pcp.
+                               complete_cnt));
 
     MPIR_Assert(sreq->ch.lmt_extpkt);
     MPL_free(sreq->ch.lmt_extpkt);

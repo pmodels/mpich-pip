@@ -91,6 +91,7 @@ double lmt_pip_prof_gen_chunk_timer = 0.0;
 int lmt_pip_prof_lmt_gen_chunk_cnt = 0;
 int lmt_pip_prof_noncontig_nchunks = 0;
 int lmt_pip_prof_lmt_noncontig_cnt = 0;
+int lmt_pip_prof_copied_noncontig_nblks = 0;
 #endif
 
 void MPID_nem_lmt_pip_free_dtseg(const MPI_Datatype datatype);
@@ -716,6 +717,10 @@ static inline void lmt_pip_copy_nchunked_noncontig(MPID_nem_pkt_lmt_rts_pipext_t
         /* Finished a chunk. */
         OPA_decr_int(&lmt_extpkt->pcp.complete_cnt);
 
+#ifdef LMT_PIP_PROFILING
+        lmt_pip_prof_copied_noncontig_nblks += (blk_end - blk_sta + 1);
+#endif
+
         /* Get next chunk. */
         cur_chunk = OPA_fetch_and_incr_int(&lmt_extpkt->pcp.offset);
         copied++;
@@ -841,6 +846,10 @@ int MPID_nem_lmt_pip_start_send(MPIDI_VC_t * vc, MPIR_Request * req, MPL_IOV r_c
                                         ((char *) lmt_extpkt->pcp.receiver_buf + recv_true_lb),
                                         "s");
     }
+
+#ifdef LMT_PIP_PROFILING
+    lmt_pip_prof_lmt_noncontig_cnt++;
+#endif
 
     /* No clean up here, release only after received DONE.
      * Because the receiver might still be accessing. */
@@ -1121,8 +1130,8 @@ int MPID_nem_lmt_pip_done_send(MPIDI_VC_t * vc, MPIR_Request * sreq)
     /* Complete send request. */
     PIP_DBG_PRINT("[%d] %s: complete sreq %p/0x%x, free extpkt=%p, complete_cnt=%d\n",
                   myrank, __FUNCTION__, sreq, sreq->handle, sreq->ch.lmt_extpkt,
-                  OPA_load_int(&((MPID_nem_pkt_lmt_rts_pipext_t *) sreq->ch.lmt_extpkt)->
-                               pcp.complete_cnt));
+                  OPA_load_int(&((MPID_nem_pkt_lmt_rts_pipext_t *) sreq->ch.lmt_extpkt)->pcp.
+                               complete_cnt));
 
     MPIR_Assert(sreq->ch.lmt_extpkt);
     MPL_free(sreq->ch.lmt_extpkt);

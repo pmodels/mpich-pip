@@ -18,28 +18,32 @@ extern int lmt_pip_prof_lmt_unfold_datatype_cnt;
 extern double lmt_pip_prof_gen_chunk_timer;
 extern int lmt_pip_prof_lmt_gen_chunk_cnt;
 extern int lmt_pip_prof_noncontig_nchunks;
+extern int lmt_pip_prof_copied_noncontig_nblks;
 extern int lmt_pip_prof_lmt_noncontig_cnt;
 
 static void lmt_pip_prof_print(void) {
     int rank = 0;
     double avg_unfold_datatype_timer = 0.0;
     double avg_gen_chunk_timer = 0.0;
-    int avg_noncontig_nchunks = 0;
+    int avg_noncontig_nchunks = 0, avg_copied_noncontig_nblks = 0;
 
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     if (lmt_pip_prof_unfold_datatype_timer > 0)
         avg_unfold_datatype_timer = lmt_pip_prof_unfold_datatype_timer / lmt_pip_prof_lmt_unfold_datatype_cnt;
     if (lmt_pip_prof_gen_chunk_timer > 0)
         avg_gen_chunk_timer = lmt_pip_prof_gen_chunk_timer / lmt_pip_prof_lmt_gen_chunk_cnt;
-    if (lmt_pip_prof_lmt_noncontig_cnt > 0)
+    if (lmt_pip_prof_lmt_noncontig_cnt > 0) {
         avg_noncontig_nchunks = lmt_pip_prof_noncontig_nchunks / lmt_pip_prof_lmt_noncontig_cnt;
+        avg_copied_noncontig_nblks = lmt_pip_prof_copied_noncontig_nblks / lmt_pip_prof_lmt_noncontig_cnt;
+    }
 
     fprintf(stdout, "[%d] PIP_LMT_PROF: avg unfold_datatype_timer %.4lf, cnt %d\n",
             rank, avg_unfold_datatype_timer * 1000 * 1000, lmt_pip_prof_lmt_unfold_datatype_cnt);
     fprintf(stdout, "[%d] PIP_LMT_PROF: avg gen_chunk_timer %.4lf, cnt %d\n",
             rank, avg_gen_chunk_timer * 1000 * 1000, lmt_pip_prof_lmt_gen_chunk_cnt);
-    fprintf(stdout, "[%d] PIP_LMT_PROF: avg noncontig_nchunks %d, cnt %d\n",
-            rank, avg_noncontig_nchunks, lmt_pip_prof_lmt_noncontig_cnt);
+    fprintf(stdout, "[%d] PIP_LMT_PROF: avg noncontig_nchunks %d, copied_nblks %d, cnt %d\n",
+            rank, avg_noncontig_nchunks, avg_copied_noncontig_nblks,
+            lmt_pip_prof_lmt_noncontig_cnt);
     fflush(stdout);
 }
 #endif

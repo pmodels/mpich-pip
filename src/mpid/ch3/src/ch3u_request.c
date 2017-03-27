@@ -59,6 +59,11 @@ void MPID_Request_create_hook(MPIR_Request *req)
     req->dev.request_handle    = MPI_REQUEST_NULL;
 
     req->dev.request_completed_cb  = NULL;
+
+    req->dev.remote_cc_enabled = 0;
+    OPA_store_int(&req->dev.remote_cc, 1); /* Always be atomic, because accessed by
+                                            * other process. Used only when caller
+                                            * set remote_cc_enabled to 1. */
 #ifdef MPIDI_CH3_REQUEST_INIT
     MPIDI_CH3_REQUEST_INIT(req);
 #endif
@@ -596,7 +601,6 @@ int MPID_Request_complete(MPIR_Request *req)
 
 void MPID_Request_free_hook(MPIR_Request *req)
 {
-    return;
 }
 
 void MPID_Request_destroy_hook(MPIR_Request *req)

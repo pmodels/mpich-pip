@@ -100,6 +100,7 @@ typedef struct MPID_nem_lmt_pip_pcp {
 typedef struct MPID_nem_pkt_lmt_rts_pipext
 {
     MPID_nem_lmt_pip_pcp_t pcp;
+    MPIR_Request *sreq; /* used in remote completion */
 } MPID_nem_pkt_lmt_rts_pipext_t;
 #endif
 

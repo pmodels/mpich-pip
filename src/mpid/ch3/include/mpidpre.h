@@ -492,6 +492,10 @@ typedef struct MPIDI_Request {
      */
     int (*request_completed_cb)(struct MPIR_Request *);
 
+    OPA_int_t remote_cc;   /* always be atomic, because accessed by other process. */
+    int remote_cc_enabled;  /* only some requests can be remotely completed. */
+    void (*remote_completed_cb)(struct MPIR_Request *);
+
     /* partner send request when a receive request is created by the
      * sender (only used for self send) */
     struct MPIR_Request * partner_request;
@@ -499,6 +503,10 @@ typedef struct MPIDI_Request {
     struct MPIR_Request * next;
 } MPIDI_Request;
 #define MPIR_REQUEST_DECL MPIDI_Request dev;
+
+#define MPID_Request_is_remote_complete(req_) (0 == OPA_load_int(&(req_)->dev.remote_cc))
+#define MPID_Request_remote_cc_enabled(req_) (1 == (req_)->dev.remote_cc_enabled)
+#define MPID_Request_enable_rcc(req_) do { (req_)->dev.remote_cc_enabled = 1; } while (0)
 
 #if defined(MPIDI_CH3_REQUEST_DECL)
 #define MPID_DEV_REQUEST_DECL			\

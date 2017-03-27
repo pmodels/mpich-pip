@@ -102,6 +102,113 @@ typedef struct progress_hook_slot {
 
 static progress_hook_slot_t progress_hooks[MAX_PROGRESS_HOOKS];
 
+typedef struct progress_rcc_req {
+    struct progress_rcc_req *prev;
+    struct progress_rcc_req *next;
+    MPIR_Request *req;
+} progress_rcc_req_t;
+
+typedef struct {
+    progress_rcc_req_t *head;
+    MPI_Aint count;
+} progress_rcc_req_list_t;
+static progress_rcc_req_list_t remote_cc_reqs_progress = {NULL, 0};
+
+void MPID_Rcc_req_progress_register(MPIR_Request *req)
+{
+    progress_rcc_req_t *req_progress = NULL;
+
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_PROGRESS_RCC_REQ_REGISTER);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_PROGRESS_RCC_REQ_REGISTER);
+
+    req_progress = MPL_malloc(sizeof(progress_rcc_req_t));
+    req_progress->req = req;
+    req_progress->next = NULL;
+
+    /* avoid free before removed from progress. */
+    MPIR_Request_add_ref(req);
+
+    MPL_DL_APPEND(remote_cc_reqs_progress.head, req_progress);
+    remote_cc_reqs_progress.count++;
+
+    MPIR_FUNC_VERBOSE_EXIT(MPID_PROGRESS_RCC_REQ_REGISTER);
+}
+
+static int do_rcc_req_progress(int *ncompleted_ptr, int *nincompleted_ptr)
+{
+    progress_rcc_req_t *req_progress = NULL, *tmp = NULL;
+    int ncompleted = 0;
+    int mpi_errno = MPI_SUCCESS;
+
+    MPIR_FUNC_VERBOSE_STATE_DECL(DO_RCC_REQ_PROGRESS);
+    MPIR_FUNC_VERBOSE_ENTER(DO_RCC_REQ_PROGRESS);
+
+    MPL_DL_FOREACH_SAFE(remote_cc_reqs_progress.head, req_progress, tmp) {
+        MPIR_Request *req = req_progress->req;
+        int remote_completed = 0;
+
+        /* Locally complete request if remote completed. */
+        if (MPID_Request_is_remote_complete(req)) {
+            MPIR_Assert(MPID_Request_remote_cc_enabled(req));
+            if(req->dev.remote_completed_cb)
+                req->dev.remote_completed_cb(req);
+
+            /* this will signal progress completion count */
+            mpi_errno = MPID_Request_complete(req);
+            if (mpi_errno != MPI_SUCCESS)
+                MPIR_ERR_POP(mpi_errno);
+
+            remote_completed = 1;
+            ncompleted++;
+        }
+
+        /* Remove if remote completed or already locally completed. */
+        if (remote_completed || MPIR_Request_is_complete(req)) {
+
+            MPL_DL_DELETE(remote_cc_reqs_progress.head, req_progress);
+            MPL_free(req_progress);
+            remote_cc_reqs_progress.count--;
+
+            /* decrement progress ref_count */
+            MPIR_Request_free(req);
+
+            MPIR_Assert(remote_cc_reqs_progress.count >= 0);
+        }
+    }
+
+    fn_exit:
+       (*nincompleted_ptr) = remote_cc_reqs_progress.count;
+       (*ncompleted_ptr) = ncompleted;
+       MPIR_FUNC_VERBOSE_EXIT(DO_RCC_REQ_PROGRESS);
+       return mpi_errno;
+    fn_fail:
+       goto fn_exit;
+}
+
+
+static int rcc_req_progress_destroy(void)
+{
+    int ncompleted = 0, nincompleted = 0;
+    int mpi_errno = MPI_SUCCESS;
+
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_RCC_REQS_PROGRESS_DESTROY);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_RCC_REQS_PROGRESS_DESTROY);
+
+    /* Cleanup all completed requests. */
+    mpi_errno = do_rcc_req_progress(&ncompleted, &nincompleted);
+    if (mpi_errno != MPI_SUCCESS)
+        MPIR_ERR_POP(mpi_errno);
+
+    /* All requests should be completed before progress finalize. */
+    MPIR_Assert(remote_cc_reqs_progress.count == 0);
+
+  fn_exit:
+    MPIR_FUNC_VERBOSE_EXIT(MPID_RCC_REQS_PROGRESS_DESTROY);
+    return mpi_errno;
+  fn_fail:
+    goto fn_exit;
+}
+
 #ifdef HAVE_SIGNAL
 static void sigusr1_handler(int sig)
 {
@@ -500,12 +607,19 @@ int MPIDI_CH3I_Progress (MPID_Progress_state *progress_state, int is_blocking)
 	int                  in_fbox = 0;
 	MPIDI_VC_t          *vc;
 	int i;
+	int rcc_ncompleted = 0, rcc_nincompleted = 0;
+
+	    mpi_errno = do_rcc_req_progress(&rcc_ncompleted, &rcc_nincompleted);
+	    if (mpi_errno)
+	        MPIR_ERR_POP (mpi_errno);
 
         do /* receive progress */
         {
             /* make progress receiving */
             /* check queue */
             if (MPID_nem_safe_to_block_recv() && is_blocking
+                    && rcc_ncompleted == 0 /* do not blocking receive if found remote completed request */
+                    && rcc_nincompleted == 0 /* do not blocking if incompleted rcc request exists.*/
 #ifdef MPICH_IS_THREADED
                 && !MPIR_ThreadInfo.isThreaded
 #endif
@@ -1057,6 +1171,8 @@ int MPIDI_CH3I_Progress_finalize(void)
         MPL_free(qn_head);
         qn_head = ent;
     }
+
+    rcc_req_progress_destroy();
 
  fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_CH3I_PROGRESS_FINALIZE);

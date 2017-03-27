@@ -29,6 +29,8 @@ void MPIDI_CH3I_Posted_recv_enqueued(MPIR_Request *rreq);
 /* returns non-zero when req has been matched by channel */
 int  MPIDI_CH3I_Posted_recv_dequeued(MPIR_Request *rreq);
 
+void MPID_Rcc_req_progress_register(MPIR_Request *req);
+
 /*
  * Enable optional functionality
  */

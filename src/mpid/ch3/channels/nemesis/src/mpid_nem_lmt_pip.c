@@ -71,6 +71,18 @@ cvars:
         Divide noncontiguous message into multiple chunks each with this extent
         in parallel-copy method for intranode PIP LMT implementation, set to 0 to
         ignore this option (Unused).
+
+    - name        : MPIR_CVAR_NEMESIS_LMT_PIP_REMOTE_COMPLETE
+      category    : NEMESIS
+      type        : boolean
+      default     : false
+      class       : none
+      verbosity   : MPI_T_VERBOSITY_USER_BASIC
+      scope       : MPI_T_SCOPE_ALL_EQ
+      description : >-
+        If true, remote complete send request in PIP LMT implementation instead
+        of issuing DONE packet.
+
 === END_MPI_T_CVAR_INFO_BLOCK ===
 */
 
@@ -96,6 +108,8 @@ int lmt_pip_prof_copied_noncontig_nblks = 0;
 
 void MPID_nem_lmt_pip_free_dtseg(const MPI_Datatype datatype);
 static inline void lmt_pip_seg_release(MPID_nem_lmt_pip_pcp_seg_t ** seg_ptr);
+static inline void lmt_pip_try_remote_complete_req(MPIR_Request * req, int *completed);
+static void lmt_pip_complete_sreq_cb(MPIR_Request * sreq);
 
 #define LMT_PIP_SEG_VET(seg) (seg)->dt.vec
 
@@ -772,14 +786,24 @@ int MPID_nem_lmt_pip_initiate_lmt(MPIDI_VC_t * vc, MPIDI_CH3_Pkt_t * pkt, MPIR_R
 
     req->ch.lmt_extpkt = rts_pkt->extpkt;       /* store in request, thus can free it
                                                  * when LMT done.*/
+
+    if (MPIR_CVAR_NEMESIS_LMT_PIP_REMOTE_COMPLETE && MPID_Request_remote_cc_enabled(req)) {
+        rts_pkt->extpkt->sreq = req;
+        req->dev.remote_completed_cb = lmt_pip_complete_sreq_cb;
+
+        MPID_Rcc_req_progress_register(req);    /* register to progress engine. */
+    }
+
     OPA_write_barrier();
 
     MPID_nem_lmt_send_RTS(vc, rts_pkt, NULL, 0);
 
-    PIP_DBG_PRINT("[%d] %s: issued RTS: extpkt %p, sbuf[0x%lx,%ld,0x%lx, sz %ld], sreq 0x%lx\n",
-                  myrank, __FUNCTION__, rts_pkt->extpkt, rts_pkt->extpkt->pcp.sender_buf,
-                  rts_pkt->extpkt->pcp.sender_count, (unsigned long) rts_pkt->extpkt->pcp.sender_dt,
-                  rts_pkt->data_sz, (unsigned long) rts_pkt->sender_req_id);
+    PIP_DBG_PRINT
+        ("[%d] %s: issued RTS: extpkt %p, sbuf[0x%lx,%ld,0x%lx, sz %ld], sreq 0x%lx, remote_cc_enabled %d\n",
+         myrank, __FUNCTION__, rts_pkt->extpkt, rts_pkt->extpkt->pcp.sender_buf,
+         rts_pkt->extpkt->pcp.sender_count, (unsigned long) rts_pkt->extpkt->pcp.sender_dt,
+         rts_pkt->data_sz, (unsigned long) rts_pkt->sender_req_id,
+         MPID_Request_remote_cc_enabled(req));
 
     MPIR_CHKPMEM_COMMIT();
 
@@ -867,13 +891,14 @@ int MPID_nem_lmt_pip_start_send(MPIDI_VC_t * vc, MPIR_Request * req, MPL_IOV r_c
 int MPID_nem_lmt_pip_start_recv(MPIDI_VC_t * vc, MPIR_Request * rreq, MPL_IOV s_cookie)
 {
     int mpi_errno = MPI_SUCCESS;
-    MPI_Aint recv_size = 0, data_size = 0;
+    MPI_Aint recv_size ATTRIBUTE((unused)), data_size = 0;
     int send_iscontig = 0, recv_iscontig = 0;
     MPI_Aint send_true_lb = 0;
     MPI_Aint recv_true_lb = 0;
     MPIDU_Datatype *send_dtptr, *recv_dtptr;
     MPID_nem_lmt_pip_pcp_seg_t *noncontig_seg = NULL;
     int nchunks = 0, *blk_chunks = NULL;
+    int remote_completed = 0;
 
     MPID_nem_pkt_lmt_rts_pipext_t *lmt_extpkt =
         (MPID_nem_pkt_lmt_rts_pipext_t *) rreq->ch.lmt_extpkt;
@@ -956,7 +981,8 @@ int MPID_nem_lmt_pip_start_recv(MPIDI_VC_t * vc, MPIR_Request * rreq, MPL_IOV s_
                     MPI_Aint data_off = datatype_extent * i;
 
                     PIP_DBG_PRINT
-                        ("[%d] start symm-noncontig single-copy, data_off=%ld(count %d), nblocks=%d\n",
+                        ("[%d] start symm-noncontig single-copy, data_off=%ld(count %d), "
+                         "sbuf_ptr=%p, rbuf_ptr=%p, nblocks=%d\n",
                          myrank, data_off, i, sbuf_ptr, rbuf_ptr, LMT_PIP_SEG_VET(seg).nblocks - 1);
 
                     lmt_pip_copy_symmetric_vec(seg, 0, LMT_PIP_SEG_VET(seg).nblocks - 1,
@@ -979,6 +1005,16 @@ int MPID_nem_lmt_pip_start_recv(MPIDI_VC_t * vc, MPIR_Request * rreq, MPL_IOV s_
                                        rreq->dev.datatype);
             if (mpi_errno)
                 MPIR_ERR_POP(mpi_errno);
+        }
+
+        /* First try fast remote complete.
+         * Do not use in parallel copy because sender accesses sreq at CTS arrival
+         * but that sreq might already be completed or freed. */
+        if (MPIR_CVAR_NEMESIS_LMT_PIP_REMOTE_COMPLETE && lmt_extpkt->sreq) {
+            OPA_write_barrier();
+            lmt_pip_try_remote_complete_req(lmt_extpkt->sreq, &remote_completed);
+            PIP_DBG_PRINT("[%d] remote COMPLETE send request %p (%d), data_size=%ld\n",
+                          myrank, lmt_extpkt->sreq, remote_completed, data_size);
         }
     }
     /* Parallel copy. */
@@ -1061,9 +1097,12 @@ int MPID_nem_lmt_pip_start_recv(MPIDI_VC_t * vc, MPIR_Request * rreq, MPL_IOV s_
      * Note that it is needed also in parallel copy, because we need ensure
      * sender can safely release lmt_extpkt.  */
 
-    OPA_write_barrier();
-    MPID_nem_lmt_send_DONE(vc, rreq);
-    PIP_DBG_PRINT("[%d] issue single-copy DONE, data_size=%ld\n", myrank, data_size);
+    /* If remote compelte is not allowed, do regual DONE packet. */
+    if (!remote_completed) {
+        OPA_write_barrier();
+        MPID_nem_lmt_send_DONE(vc, rreq);
+        PIP_DBG_PRINT("[%d] issue copy DONE, data_size=%ld\n", myrank, data_size);
+    }
 
     /* Complete receive request. */
     MPID_nem_lmt_pip_done_recv(vc, rreq);
@@ -1113,6 +1152,15 @@ int MPID_nem_lmt_pip_done_recv(MPIDI_VC_t * vc, MPIR_Request * rreq)
     goto fn_exit;
 }
 
+
+static void lmt_pip_complete_sreq(MPIR_Request * sreq)
+{
+    OPA_read_barrier();
+
+    MPIR_Assert(sreq->ch.lmt_extpkt);
+    MPL_free(sreq->ch.lmt_extpkt);
+}
+
 /* Called in sender DONE handler for single-copy LMT,
  * and in start_send for parallel-copy LMT.  */
 #undef FUNCNAME
@@ -1125,16 +1173,15 @@ int MPID_nem_lmt_pip_done_send(MPIDI_VC_t * vc, MPIR_Request * sreq)
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_NEM_LMT_PIP_DONE_SEND);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_NEM_LMT_PIP_DONE_SEND);
 
-    OPA_read_barrier();
-
-    /* Complete send request. */
-    PIP_DBG_PRINT("[%d] %s: complete sreq %p/0x%x, free extpkt=%p, complete_cnt=%d\n",
+    PIP_DBG_PRINT("[%d] %s: complete sreq %p/0x%x, free extpkt=%p, complete_cnt=%d, "
+                  "sreq->remote_cc=%d, cc=%d\n",
                   myrank, __FUNCTION__, sreq, sreq->handle, sreq->ch.lmt_extpkt,
                   OPA_load_int(&((MPID_nem_pkt_lmt_rts_pipext_t *) sreq->ch.lmt_extpkt)->pcp.
-                               complete_cnt));
+                               complete_cnt), OPA_load_int(&sreq->dev.remote_cc),
+                  MPIR_cc_get(sreq->cc));
 
-    MPIR_Assert(sreq->ch.lmt_extpkt);
-    MPL_free(sreq->ch.lmt_extpkt);
+    /* Complete send request. */
+    lmt_pip_complete_sreq(sreq);
 
     mpi_errno = MPID_Request_complete(sreq);
     if (mpi_errno != MPI_SUCCESS)
@@ -1147,6 +1194,31 @@ int MPID_nem_lmt_pip_done_send(MPIDI_VC_t * vc, MPIR_Request * sreq)
     goto fn_exit;
 }
 
+static void lmt_pip_complete_sreq_cb(MPIR_Request * sreq)
+{
+    MPIR_FUNC_VERBOSE_STATE_DECL(LMT_PIP_COMPLETE_SREQ_CB);
+    MPIR_FUNC_VERBOSE_ENTER(LMT_PIP_COMPLETE_SREQ_CB);
+
+    PIP_DBG_PRINT
+        ("[%d] %s: complete sreq %p, remote_cc=%d, cc=%d, free extpkt=%p, complete_cnt=%d, " "\n",
+         myrank, __FUNCTION__, sreq, OPA_load_int(&sreq->dev.remote_cc), MPIR_cc_get(sreq->cc),
+         sreq->ch.lmt_extpkt,
+         OPA_load_int(&((MPID_nem_pkt_lmt_rts_pipext_t *) sreq->ch.lmt_extpkt)->pcp.complete_cnt));
+
+    lmt_pip_complete_sreq(sreq);
+
+    MPIR_FUNC_VERBOSE_EXIT(LMT_PIP_COMPLETE_SREQ_CB);
+}
+
+
+static inline void lmt_pip_try_remote_complete_req(MPIR_Request * req, int *completed)
+{
+    (*completed) = 0;
+    if (MPID_Request_remote_cc_enabled(req)) {
+        OPA_decr_int(&req->dev.remote_cc);
+        (*completed) = 1;
+    }
+}
 
 #undef FUNCNAME
 #define FUNCNAME MPID_nem_lmt_pip_progress

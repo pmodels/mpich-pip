@@ -91,6 +91,8 @@ int MPID_Isend(const void * buf, MPI_Aint count, MPI_Datatype datatype, int rank
 
     MPIDI_Datatype_get_info(count, datatype, dt_contig, data_sz, dt_ptr, 
 			    dt_true_lb);
+
+    RECORD_MSG_SEND_PROF(data_sz);
     
     if (data_sz == 0)
     {

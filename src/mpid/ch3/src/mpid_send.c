@@ -8,6 +8,10 @@
 
 /* FIXME - HOMOGENEOUS SYSTEMS ONLY -- no data conversion is performed */
 
+#ifdef MSG_SEND_PROFILING
+long msg_send_prof_cnts[MSG_SEND_PROFILING_MAX] = {0};
+#endif
+
 /*
  * MPID_Send()
  */
@@ -85,6 +89,7 @@ int MPID_Send(const void * buf, MPI_Aint count, MPI_Datatype datatype, int rank,
     MPIDI_Datatype_get_info(count, datatype, dt_contig, data_sz, dt_ptr, 
 			    dt_true_lb);
 
+    RECORD_MSG_SEND_PROF(data_sz);
 
     if (data_sz == 0)
     {

@@ -35,6 +35,27 @@
 int gethostname(char *name, size_t len);
 # endif
 
+#ifdef MSG_SEND_PROFILING
+#define MSG_SEND_PROFILING_MEDIUM_SIZE 4096
+#define MSG_SEND_PROFILING_LARGE_SIZE 32768
+#define MSG_SEND_PROFILING_HUGE_SIZE 524288
+#define MSG_SEND_PROFILING_MAX 4
+extern long msg_send_prof_cnts[MSG_SEND_PROFILING_MAX]; /* small, medium, large, huge */
+#define RECORD_MSG_SEND_PROF(size) do {                     \
+    if(data_sz < MSG_SEND_PROFILING_MEDIUM_SIZE) {          \
+        msg_send_prof_cnts[0]++;                            \
+    } else if (data_sz < MSG_SEND_PROFILING_LARGE_SIZE) {   \
+        msg_send_prof_cnts[1]++;                            \
+    } else if (data_sz < MSG_SEND_PROFILING_HUGE_SIZE) {    \
+      msg_send_prof_cnts[2]++;                              \
+    } else {                                                \
+        msg_send_prof_cnts[3]++;                            \
+    }                                                       \
+} while (0)
+#else
+#define RECORD_MSG_SEND_PROF(size) do { } while (0)
+#endif
+
 /* Default PMI version to use */
 #define MPIDI_CH3I_DEFAULT_PMI_VERSION 1
 #define MPIDI_CH3I_DEFAULT_PMI_SUBVERSION 1

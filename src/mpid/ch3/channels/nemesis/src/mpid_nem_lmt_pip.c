@@ -95,7 +95,6 @@ static int myrank = -1;         /* debug purpose */
 #define PIP_DBG_PRINT(str,...) do {} while (0)
 #endif
 
-#define LMT_PIP_PROFILING
 #ifdef LMT_PIP_PROFILING
 double lmt_pip_prof_unfold_datatype_timer = 0.0;
 int lmt_pip_prof_lmt_unfold_datatype_cnt = 0;

@@ -11,7 +11,6 @@
    rather than direct routine calls.
  */
 
-#define LMT_PIP_PROFILING
 #if defined(HAVE_PIP) && defined(LMT_PIP_PROFILING)
 extern double lmt_pip_prof_unfold_datatype_timer;
 extern int lmt_pip_prof_lmt_unfold_datatype_cnt;

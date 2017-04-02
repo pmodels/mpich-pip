@@ -81,11 +81,13 @@ typedef struct MPID_nem_lmt_pip_pcp {
     uintptr_t sender_buf;
     MPI_Datatype sender_dt;
     MPI_Aint sender_count;
+    MPIDU_Datatype *send_dtptr; /* workaround fortran special datatype */
 
     /* Receiver fills at RTS arrival. */
     uintptr_t receiver_buf;
     MPI_Datatype receiver_dt;
     MPI_Aint receiver_count;
+    MPIDU_Datatype *receiver_dtptr; /* workaround fortran special datatype */
 
     /* Synchronizing components. */
     int nchunks;

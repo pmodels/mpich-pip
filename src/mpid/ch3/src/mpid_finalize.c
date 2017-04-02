@@ -57,11 +57,11 @@ static inline void profiling_print(void) {
         MPI_Reduce(&lmt_pip_prof_gen_chunk_timer, &avg_gen_chunk_timers[2], 1,
                    MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
-        MPI_Reduce(lmt_pip_prof_noncontig_nchunks, &avg_prof_noncontig_nchunks[0], 1,
+        MPI_Reduce(lmt_pip_prof_noncontig_nchunks, &avg_prof_noncontig_nchunks[0], 4,
                    MPI_LONG, MPI_MIN, 0, MPI_COMM_WORLD);
-        MPI_Reduce(lmt_pip_prof_noncontig_nchunks, &avg_prof_noncontig_nchunks[4], 1,
+        MPI_Reduce(lmt_pip_prof_noncontig_nchunks, &avg_prof_noncontig_nchunks[4], 4,
                 MPI_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
-        MPI_Reduce(lmt_pip_prof_noncontig_nchunks, &avg_prof_noncontig_nchunks[8], 1,
+        MPI_Reduce(lmt_pip_prof_noncontig_nchunks, &avg_prof_noncontig_nchunks[8], 4,
                 MPI_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
 
         MPI_Reduce(lmt_pip_prof_contig_nchunks, &avg_prof_contig_nchunks[0], 2,
@@ -94,15 +94,15 @@ static inline void profiling_print(void) {
                     avg_dup_datatype_timers[2]);
             fprintf(stdout, "[%d] PIP_LMT_PROF: noncontig_nchunks "
                     "(s) min %ld max %ld avg %ld, "
-                    "(r) min %ld max %ld avg %ld, "
-                    "(single n2n) min %ld max %ld avg %ld, "
-                    "(single c2n) min %ld max %ld avg %ld, "
-                    "cnt %ld\n",
+                    "(r) min %ld max %ld avg %ld, cnt %ld\n",
                     rank, avg_prof_noncontig_nchunks[0], avg_prof_noncontig_nchunks[4], avg_prof_noncontig_nchunks[8],
                     avg_prof_noncontig_nchunks[1], avg_prof_noncontig_nchunks[5], avg_prof_noncontig_nchunks[9],
-                    avg_prof_noncontig_nchunks[2], avg_prof_noncontig_nchunks[6], avg_prof_noncontig_nchunks[10],
-                    avg_prof_noncontig_nchunks[3], avg_prof_noncontig_nchunks[7], avg_prof_noncontig_nchunks[11],
                     lmt_pip_prof_lmt_noncontig_cnt);
+            fprintf(stdout, "[%d] PIP_LMT_PROF: noncontig_single_cnts "
+                    "(n2n) min %ld max %ld avg %ld, "
+                    "(c2n) min %ld max %ld avg %ld\n", rank,
+                    avg_prof_noncontig_nchunks[2], avg_prof_noncontig_nchunks[6], avg_prof_noncontig_nchunks[10],
+                    avg_prof_noncontig_nchunks[3], avg_prof_noncontig_nchunks[7], avg_prof_noncontig_nchunks[11]);
             fprintf(stdout, "[%d] PIP_LMT_PROF: contig_nchunks "
                     "(s) min %ld max %ld avg %ld, "
                     "(r) min %ld max %ld avg %ld,"

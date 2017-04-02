@@ -1152,6 +1152,9 @@ int MPID_nem_lmt_pip_start_recv(MPIDI_VC_t * vc, MPIR_Request * rreq, MPL_IOV s_
                                                (sbuf_ptr + data_off), (rbuf_ptr + data_off));
                 }
                 copied = 1;
+#ifdef LMT_PIP_PROFILING
+                lmt_pip_prof_noncontig_nchunks[3]++;
+#endif
             }
             /* For any unsupported datatypes, simply do pack-unpack. */
         }
@@ -1225,11 +1228,11 @@ int MPID_nem_lmt_pip_start_recv(MPIDI_VC_t * vc, MPIR_Request * rreq, MPL_IOV s_
 
             PIP_DBG_PRINT
                 ("[%d] parallel-copy(r) start contig parallel copy, sbuf=0x%lx(lb=%ld), rbuf=0x%lx(lb=%ld), count=%ld, "
-                 "receiver_dt=0x%lx (receiver_dtptr=%p), nchunks=%d, nblocks=%d, type=%d\n",
+                 "receiver_dt=0x%lx (receiver_dtptr=%p), nchunks=%d, type=%d\n",
                  myrank, lmt_extpkt->pcp.sender_buf, send_true_lb,
                  lmt_extpkt->pcp.receiver_buf, recv_true_lb, lmt_extpkt->pcp.receiver_count,
                  lmt_extpkt->pcp.receiver_dt, lmt_extpkt->pcp.receiver_dtptr,
-                 lmt_extpkt->pcp.nchunks);
+                 lmt_extpkt->pcp.nchunks, lmt_extpkt->pcp.type);
 
             /* Sync with sender to initial parallel copy. */
             OPA_store_int(&lmt_extpkt->pcp.complete_cnt, lmt_extpkt->pcp.nchunks);

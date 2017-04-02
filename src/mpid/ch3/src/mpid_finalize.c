@@ -10,15 +10,16 @@
    In addition, we should consider registering callbacks for those actions
    rather than direct routine calls.
  */
-
+//#define LMT_PIP_PROFILING
 #if defined(HAVE_PIP) && defined(LMT_PIP_PROFILING)
 extern double lmt_pip_prof_unfold_datatype_timer;
-extern int lmt_pip_prof_lmt_unfold_datatype_cnt;
+extern long lmt_pip_prof_lmt_unfold_datatype_cnt;
 extern double lmt_pip_prof_gen_chunk_timer;
-extern int lmt_pip_prof_lmt_gen_chunk_cnt;
-extern int lmt_pip_prof_noncontig_nchunks;
-extern int lmt_pip_prof_copied_noncontig_nblks;
-extern int lmt_pip_prof_lmt_noncontig_cnt;
+extern double lmt_pip_prof_dup_datatype_timer;
+extern long lmt_pip_prof_lmt_gen_chunk_cnt;
+extern long lmt_pip_prof_noncontig_nchunks[4]; /* as sender, as receiver; single(both noncontig); single(side noncontig);*/
+extern long lmt_pip_prof_lmt_noncontig_cnt;
+extern long lmt_pip_prof_contig_nchunks[3]; /* as sender, as receiver; single; */
 #endif
 
 static inline void profiling_print(void) {
@@ -29,29 +30,87 @@ static inline void profiling_print(void) {
 
 #if defined(HAVE_PIP) && defined(LMT_PIP_PROFILING)
     {
-        double avg_unfold_datatype_timer = 0.0;
-        double avg_gen_chunk_timer = 0.0;
-        int avg_noncontig_nchunks = 0, avg_copied_noncontig_nblks = 0;
-        if (lmt_pip_prof_unfold_datatype_timer > 0)
-            avg_unfold_datatype_timer = lmt_pip_prof_unfold_datatype_timer /
-                lmt_pip_prof_lmt_unfold_datatype_cnt;
-        if (lmt_pip_prof_gen_chunk_timer > 0)
-            avg_gen_chunk_timer = lmt_pip_prof_gen_chunk_timer /
-                lmt_pip_prof_lmt_gen_chunk_cnt;
-        if (lmt_pip_prof_lmt_noncontig_cnt > 0) {
-            avg_noncontig_nchunks = lmt_pip_prof_noncontig_nchunks /
-                    lmt_pip_prof_lmt_noncontig_cnt;
-            avg_copied_noncontig_nblks = lmt_pip_prof_copied_noncontig_nblks /
-                    lmt_pip_prof_lmt_noncontig_cnt;
-        }
+        double avg_unfold_datatype_timers[3] = {0.0};
+        double avg_gen_chunk_timers[3] = {0.0};
+        double avg_dup_datatype_timers[3] = {0.0};
+        long avg_prof_contig_nchunks[9] = {0};
+        long avg_prof_noncontig_nchunks[12] = {0};
 
-        fprintf(stdout, "[%d] PIP_LMT_PROF: avg unfold_datatype_timer %.4lf, cnt %d\n",
-                rank, avg_unfold_datatype_timer * 1000 * 1000, lmt_pip_prof_lmt_unfold_datatype_cnt);
-        fprintf(stdout, "[%d] PIP_LMT_PROF: avg gen_chunk_timer %.4lf, cnt %d\n",
-                rank, avg_gen_chunk_timer * 1000 * 1000, lmt_pip_prof_lmt_gen_chunk_cnt);
-        fprintf(stdout, "[%d] PIP_LMT_PROF: avg noncontig_nchunks %d, copied_nblks %d, cnt %d\n",
-                rank, avg_noncontig_nchunks, avg_copied_noncontig_nblks,
-                lmt_pip_prof_lmt_noncontig_cnt);
+        MPI_Reduce(&lmt_pip_prof_dup_datatype_timer, &avg_dup_datatype_timers[0], 1,
+                   MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
+        MPI_Reduce(&lmt_pip_prof_dup_datatype_timer, &avg_dup_datatype_timers[1], 1,
+                   MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+        MPI_Reduce(&lmt_pip_prof_dup_datatype_timer, &avg_dup_datatype_timers[2], 1,
+                   MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+
+        MPI_Reduce(&lmt_pip_prof_unfold_datatype_timer, &avg_unfold_datatype_timers[0], 1,
+                   MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
+        MPI_Reduce(&lmt_pip_prof_unfold_datatype_timer, &avg_unfold_datatype_timers[1], 1,
+                   MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+        MPI_Reduce(&lmt_pip_prof_unfold_datatype_timer, &avg_unfold_datatype_timers[2], 1,
+                   MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+
+        MPI_Reduce(&lmt_pip_prof_gen_chunk_timer, &avg_gen_chunk_timers[0], 1,
+                   MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
+        MPI_Reduce(&lmt_pip_prof_gen_chunk_timer, &avg_gen_chunk_timers[1], 1,
+                   MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+        MPI_Reduce(&lmt_pip_prof_gen_chunk_timer, &avg_gen_chunk_timers[2], 1,
+                   MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+
+        MPI_Reduce(lmt_pip_prof_noncontig_nchunks, &avg_prof_noncontig_nchunks[0], 1,
+                   MPI_LONG, MPI_MIN, 0, MPI_COMM_WORLD);
+        MPI_Reduce(lmt_pip_prof_noncontig_nchunks, &avg_prof_noncontig_nchunks[4], 1,
+                MPI_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
+        MPI_Reduce(lmt_pip_prof_noncontig_nchunks, &avg_prof_noncontig_nchunks[8], 1,
+                MPI_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+
+        MPI_Reduce(lmt_pip_prof_contig_nchunks, &avg_prof_contig_nchunks[0], 2,
+                MPI_LONG, MPI_MIN, 0, MPI_COMM_WORLD);
+        MPI_Reduce(lmt_pip_prof_contig_nchunks, &avg_prof_contig_nchunks[3], 2,
+                MPI_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
+        MPI_Reduce(lmt_pip_prof_contig_nchunks, &avg_prof_contig_nchunks[6], 2,
+                MPI_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+
+        if(rank == 0) {
+            avg_dup_datatype_timers[2] = avg_dup_datatype_timers[2] / size;
+            avg_unfold_datatype_timers[2] = avg_unfold_datatype_timers[2] / size;
+            avg_gen_chunk_timers[2] = avg_gen_chunk_timers[2] / size;
+            avg_prof_noncontig_nchunks[8] = avg_prof_noncontig_nchunks[8] / size;
+            avg_prof_noncontig_nchunks[9] = avg_prof_noncontig_nchunks[9] / size;
+            avg_prof_noncontig_nchunks[10] = avg_prof_noncontig_nchunks[10] / size;
+            avg_prof_noncontig_nchunks[11] = avg_prof_noncontig_nchunks[11] / size;
+            avg_prof_contig_nchunks[6] = avg_prof_contig_nchunks[6] / size;
+            avg_prof_contig_nchunks[7] = avg_prof_contig_nchunks[7] / size;
+            avg_prof_contig_nchunks[8] = avg_prof_contig_nchunks[8] / size;
+
+            fprintf(stdout, "[%d] PIP_LMT_PROF: unfold_datatype_timer min %.4lf max %.4lf avg %.4lf, cnt %d\n",
+                    rank, avg_unfold_datatype_timers[0], avg_unfold_datatype_timers[1],
+                    avg_unfold_datatype_timers[2], lmt_pip_prof_lmt_unfold_datatype_cnt);
+            fprintf(stdout, "[%d] PIP_LMT_PROF: gen_chunk_timer min %.4lf max %.4lf avg %.4lf, cnt %d\n",
+                    rank, avg_gen_chunk_timers[0], avg_gen_chunk_timers[1],
+                    avg_gen_chunk_timers[2], lmt_pip_prof_lmt_gen_chunk_cnt);
+            fprintf(stdout, "[%d] PIP_LMT_PROF: dup_datatype_timer min %.4lf max %.4lf avg %.4lf\n",
+                    rank, avg_dup_datatype_timers[0], avg_dup_datatype_timers[1],
+                    avg_dup_datatype_timers[2]);
+            fprintf(stdout, "[%d] PIP_LMT_PROF: noncontig_nchunks "
+                    "(s) min %ld max %ld avg %ld, "
+                    "(r) min %ld max %ld avg %ld, "
+                    "(single n2n) min %ld max %ld avg %ld, "
+                    "(single c2n) min %ld max %ld avg %ld, "
+                    "cnt %ld\n",
+                    rank, avg_prof_noncontig_nchunks[0], avg_prof_noncontig_nchunks[4], avg_prof_noncontig_nchunks[8],
+                    avg_prof_noncontig_nchunks[1], avg_prof_noncontig_nchunks[5], avg_prof_noncontig_nchunks[9],
+                    avg_prof_noncontig_nchunks[2], avg_prof_noncontig_nchunks[6], avg_prof_noncontig_nchunks[10],
+                    avg_prof_noncontig_nchunks[3], avg_prof_noncontig_nchunks[7], avg_prof_noncontig_nchunks[11],
+                    lmt_pip_prof_lmt_noncontig_cnt);
+            fprintf(stdout, "[%d] PIP_LMT_PROF: contig_nchunks "
+                    "(s) min %ld max %ld avg %ld, "
+                    "(r) min %ld max %ld avg %ld,"
+                    "(single) min %ld max %ld avg %ld\n",
+                    rank, avg_prof_contig_nchunks[0], avg_prof_contig_nchunks[3], avg_prof_contig_nchunks[6],
+                    avg_prof_contig_nchunks[1], avg_prof_contig_nchunks[4], avg_prof_contig_nchunks[7],
+                    avg_prof_contig_nchunks[2], avg_prof_contig_nchunks[5], avg_prof_contig_nchunks[8]);
+        }
     }
 #endif
 

@@ -97,12 +97,14 @@ static int myrank = -1;         /* debug purpose */
 
 #ifdef LMT_PIP_PROFILING
 double lmt_pip_prof_unfold_datatype_timer = 0.0;
-int lmt_pip_prof_lmt_unfold_datatype_cnt = 0;
+long lmt_pip_prof_lmt_unfold_datatype_cnt = 0;
 double lmt_pip_prof_gen_chunk_timer = 0.0;
-int lmt_pip_prof_lmt_gen_chunk_cnt = 0;
-int lmt_pip_prof_noncontig_nchunks = 0;
-int lmt_pip_prof_lmt_noncontig_cnt = 0;
-int lmt_pip_prof_copied_noncontig_nblks = 0;
+double lmt_pip_prof_dup_datatype_timer = 0.0;
+long lmt_pip_prof_lmt_gen_chunk_cnt = 0;
+long lmt_pip_prof_noncontig_nchunks[4] = { 0 }; /* as sender, as receiver; single(both noncontig); single(side noncontig); */
+long lmt_pip_prof_contig_nchunks[3] = { 0 };    /* as sender, as receiver; single; */
+
+long lmt_pip_prof_lmt_noncontig_cnt = 0;
 #endif
 
 void MPID_nem_lmt_pip_free_dtseg(const MPI_Datatype datatype);
@@ -595,7 +597,11 @@ static inline void lmt_pip_block_copy(void *rbuf_ptr, void *sbuf_ptr, int blk_cn
 
 static inline void lmt_pip_copy_nchunked_contig(MPID_nem_pkt_lmt_rts_pipext_t * lmt_extpkt,
                                                 MPI_Aint data_size, char *sbuf, char *rbuf,
-                                                const char *dbg_nm)
+                                                const char *dbg_nm
+#ifdef LMT_PIP_PROFILING
+                                                , int prof_sr   /* s:0, r:1 */
+#endif
+)
 {
     char *sbuf_ptr = NULL, *rbuf_ptr = NULL;
     int offset = 0;
@@ -624,6 +630,10 @@ static inline void lmt_pip_copy_nchunked_contig(MPID_nem_pkt_lmt_rts_pipext_t * 
 
         /* Get next chunk. */
         offset = OPA_fetch_and_incr_int(&lmt_extpkt->pcp.offset);
+
+#ifdef LMT_PIP_PROFILING
+        lmt_pip_prof_contig_nchunks[prof_sr]++;
+#endif
     }
 
     MPIR_FUNC_VERBOSE_EXIT(LMT_PIP_COPY_NCHUNKED_CONTIG);
@@ -646,7 +656,11 @@ static inline void lmt_pip_copy_symmetric_vec(MPID_nem_lmt_pip_pcp_seg_t * seg,
 
 static inline void lmt_pip_copy_nchunked_noncontig(MPID_nem_pkt_lmt_rts_pipext_t * lmt_extpkt,
                                                    MPI_Aint data_size ATTRIBUTE((unused)),
-                                                   char *sbuf, char *rbuf, const char *dbg_nm)
+                                                   char *sbuf, char *rbuf, const char *dbg_nm
+#ifdef LMT_PIP_PROFILING
+                                                   , int prof_sr        /* s:0, r:1 */
+#endif
+)
 {
     char *sbuf_ptr = NULL, *rbuf_ptr = NULL;
     MPI_Aint copy_size = 0, contig_offset = 0;
@@ -731,7 +745,7 @@ static inline void lmt_pip_copy_nchunked_noncontig(MPID_nem_pkt_lmt_rts_pipext_t
         OPA_decr_int(&lmt_extpkt->pcp.complete_cnt);
 
 #ifdef LMT_PIP_PROFILING
-        lmt_pip_prof_copied_noncontig_nblks += (blk_end - blk_sta + 1);
+        lmt_pip_prof_noncontig_nchunks[prof_sr] += (blk_end - blk_sta + 1);
 #endif
 
         /* Get next chunk. */
@@ -860,14 +874,21 @@ int MPID_nem_lmt_pip_start_send(MPIDI_VC_t * vc, MPIR_Request * req, MPL_IOV r_c
         /* Coordinate with the other side to copy contiguous chunks in parallel. */
         lmt_pip_copy_nchunked_contig(lmt_extpkt, data_size,
                                      ((char *) lmt_extpkt->pcp.sender_buf + send_true_lb),
-                                     ((char *) lmt_extpkt->pcp.receiver_buf + recv_true_lb), "s");
+                                     ((char *) lmt_extpkt->pcp.receiver_buf + recv_true_lb), "s"
+#ifdef LMT_PIP_PROFILING
+                                     , 0
+#endif
+);
     }
     else {
         /* Coordinate with the other side to copy noncontig chunks in parallel. */
         lmt_pip_copy_nchunked_noncontig(lmt_extpkt, data_size,
                                         ((char *) lmt_extpkt->pcp.sender_buf + send_true_lb),
-                                        ((char *) lmt_extpkt->pcp.receiver_buf + recv_true_lb),
-                                        "s");
+                                        ((char *) lmt_extpkt->pcp.receiver_buf + recv_true_lb), "s"
+#ifdef LMT_PIP_PROFILING
+                                        , 0
+#endif
+);
     }
 
 #ifdef LMT_PIP_PROFILING
@@ -1004,6 +1025,18 @@ int MPID_nem_lmt_pip_start_recv(MPIDI_VC_t * vc, MPIR_Request * rreq, MPL_IOV s_
                                        rreq->dev.datatype);
             if (mpi_errno)
                 MPIR_ERR_POP(mpi_errno);
+
+#ifdef LMT_PIP_PROFILING
+            if (send_iscontig && recv_iscontig) {
+                lmt_pip_prof_contig_nchunks[2]++;
+            }
+            else if (!send_iscontig && !recv_iscontig) {
+                lmt_pip_prof_noncontig_nchunks[2]++;
+            }
+            else {
+                lmt_pip_prof_noncontig_nchunks[3]++;
+            }
+#endif
         }
 
         /* First try fast remote complete.
@@ -1048,8 +1081,11 @@ int MPID_nem_lmt_pip_start_recv(MPIDI_VC_t * vc, MPIR_Request * rreq, MPL_IOV s_
             /* Coordinate with the other side to copy contiguous chunks in parallel. */
             lmt_pip_copy_nchunked_contig(lmt_extpkt, data_size,
                                          ((char *) lmt_extpkt->pcp.sender_buf + send_true_lb),
-                                         ((char *) lmt_extpkt->pcp.receiver_buf + recv_true_lb),
-                                         "r");
+                                         ((char *) lmt_extpkt->pcp.receiver_buf + recv_true_lb), "r"
+#ifdef LMT_PIP_PROFILING
+                                         , 1
+#endif
+);
         }
         else {
             /* TODO: add option by using MPIR_CVAR_NEMESIS_LMT_PIP_PCP_NONCONTIG_CHUNKEXTENT */
@@ -1072,10 +1108,13 @@ int MPID_nem_lmt_pip_start_recv(MPIDI_VC_t * vc, MPIR_Request * rreq, MPL_IOV s_
             lmt_pip_copy_nchunked_noncontig(lmt_extpkt, data_size,
                                             ((char *) lmt_extpkt->pcp.sender_buf + send_true_lb),
                                             ((char *) lmt_extpkt->pcp.receiver_buf + recv_true_lb),
-                                            "r");
+                                            "r"
+#ifdef LMT_PIP_PROFILING
+                                            , 1
+#endif
+);
 
 #ifdef LMT_PIP_PROFILING
-            lmt_pip_prof_noncontig_nchunks += lmt_extpkt->pcp.nchunks;
             lmt_pip_prof_lmt_noncontig_cnt++;
 #endif
         }

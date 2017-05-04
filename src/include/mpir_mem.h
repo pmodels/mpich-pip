@@ -84,7 +84,7 @@ extern MPL_dbg_class MPIR_DBG_STRING;
         memcpy((dst), (src), (len));              \
     } while (0)
 
-#ifdef USE_MEMORY_TRACING
+#if defined(USE_MEMORY_TRACING) && !defined(HAVE_PIP)
 
 /* Define these as invalid C to catch their use in the code */
 #define malloc(a)         'Error use MPL_malloc' :::

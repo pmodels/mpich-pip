@@ -91,7 +91,7 @@ int MPIR_async_thread_initialized = 0;
    MPI_Init - Initialize the MPI execution environment
 
 Input Parameters:
-+  argc - Pointer to the number of arguments 
++  argc - Pointer to the number of arguments
 -  argv - Pointer to the argument vector
 
 Thread and Signal Safety:
@@ -133,15 +133,6 @@ int MPI_Init( int *argc, char ***argv )
     rc = MPID_Wtime_init();
 #ifdef MPL_USE_DBG_LOGGING
     MPL_dbg_pre_init( argc, argv, rc );
-#endif
-
-#ifdef HAVE_PIP
-    {
-        int pipid = -10;
-        pip_get_pipid(&pipid);
-        fprintf(stdout, "%s: my pipid=%d\n", __FUNCTION__, pipid);
-        fflush(stdout);
-    }
 #endif
 
     MPIR_FUNC_TERSE_INIT_ENTER(MPID_STATE_MPI_INIT);
@@ -213,7 +204,7 @@ int MPI_Init( int *argc, char ***argv )
 #   ifdef HAVE_ERROR_REPORTING
     {
 	mpi_errno = MPIR_Err_create_code(
-	    mpi_errno, MPIR_ERR_RECOVERABLE, FCNAME, __LINE__, MPI_ERR_OTHER, 
+	    mpi_errno, MPIR_ERR_RECOVERABLE, FCNAME, __LINE__, MPI_ERR_OTHER,
 	    "**mpi_init", "**mpi_init %p %p", argc, argv);
     }
 #   endif

@@ -15,7 +15,7 @@ FFLAGS   = $(WRAPPER_FFLAGS)
 FCFLAGS  = $(WRAPPER_FCFLAGS)
 AM_LDFLAGS  =
 AM_CPPFLAGS = $(WRAPPER_CPPFLAGS)
-#DEFS     = 
+#DEFS     =
 
 AM_CPPFLAGS += -I$(top_builddir)/src/include -I${top_srcdir}/src/include
 if BUILD_ROMIO
@@ -78,7 +78,7 @@ parent_SOURCES = parent.c
 # --disable-static" is passed to configure.
 cpi_SOURCES = cpi.c
 cpi_LDADD = -lm
-cpi_LDFLAGS = $(AM_LDFLAGS) $(mpich_libtool_static_flag)
+cpi_LDFLAGS = $(AM_LDFLAGS) -fpie -pie
 
 icpi_SOURCES = icpi.c
 icpi_LDADD = -lm

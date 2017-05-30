@@ -133,15 +133,6 @@ int MPI_Init(int *argc, char ***argv)
     MPL_dbg_pre_init(argc, argv, rc);
 #endif
 
-#ifdef HAVE_PIP
-    {
-        int pipid = -10;
-        pip_get_pipid(&pipid);
-        fprintf(stdout, "%s: my pipid=%d\n", __FUNCTION__, pipid);
-        fflush(stdout);
-    }
-#endif
-
     MPIR_FUNC_TERSE_INIT_ENTER(MPID_STATE_MPI_INIT);
 #ifdef HAVE_ERROR_CHECKING
     {
@@ -218,9 +209,9 @@ int MPI_Init(int *argc, char ***argv)
     /* --BEGIN ERROR HANDLING-- */
 #ifdef HAVE_ERROR_REPORTING
     {
-        mpi_errno =
-            MPIR_Err_create_code(mpi_errno, MPIR_ERR_RECOVERABLE, FCNAME, __LINE__, MPI_ERR_OTHER,
-                                 "**mpi_init", "**mpi_init %p %p", argc, argv);
+	mpi_errno = MPIR_Err_create_code(
+	    mpi_errno, MPIR_ERR_RECOVERABLE, FCNAME, __LINE__, MPI_ERR_OTHER,
+	    "**mpi_init", "**mpi_init %p %p", argc, argv);
     }
 #endif
     mpi_errno = MPIR_Err_return_comm(0, FCNAME, mpi_errno);

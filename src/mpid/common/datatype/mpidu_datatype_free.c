@@ -34,7 +34,8 @@ Output Parameters:
 
   @*/
 
-#ifdef HAVE_PIP
+
+#if defined(MPID_NEM_LOCAL_LMT_IMPL) && (MPID_NEM_LOCAL_LMT_IMPL == MPID_NEM_LOCAL_LMT_PIP)
 extern void MPID_nem_lmt_pip_free_dtseg(const MPI_Datatype datatype);
 #endif
 
@@ -42,7 +43,7 @@ void MPIDU_Datatype_free(MPIDU_Datatype *ptr)
 {
     MPL_DBG_MSG_P(MPIR_DBG_DATATYPE,VERBOSE,"type %x freed.", ptr->handle);
 
-#ifdef HAVE_PIP
+#if defined(MPID_NEM_LOCAL_LMT_IMPL) && (MPID_NEM_LOCAL_LMT_IMPL == MPID_NEM_LOCAL_LMT_PIP)
     MPID_nem_lmt_pip_free_dtseg((MPI_Datatype) ptr->handle);
 #endif
 

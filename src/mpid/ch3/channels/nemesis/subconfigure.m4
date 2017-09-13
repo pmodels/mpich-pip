@@ -278,6 +278,7 @@ case "$with_nemesis_local_lmt" in
     ;;
     pip)
     local_lmt_impl=MPID_NEM_LOCAL_LMT_PIP
+    AC_DEFINE(MPID_NEM_USE_LOCAL_LMT_PIP, 1, [Define to enable PIP LMT specific routine in MPID layer.])
     ;;
     none)
     local_lmt_impl=MPID_NEM_LOCAL_LMT_NONE

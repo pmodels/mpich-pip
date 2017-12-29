@@ -9,11 +9,6 @@
 #include "mpiimpl.h"
 #include "mpi_init.h"
 
-#ifdef HAVE_PIP
-#include <pip.h>
-#endif
-
-
 /*
 === BEGIN_MPI_T_CVAR_INFO_BLOCK ===
 

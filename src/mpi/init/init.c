@@ -12,7 +12,6 @@
 #include <pip.h>
 #endif
 
-
 /*
 === BEGIN_MPI_T_CVAR_INFO_BLOCK ===
 

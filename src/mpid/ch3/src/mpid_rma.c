@@ -288,6 +288,9 @@ static int win_init(MPI_Aint size, int disp_unit, int create_flavor, int model, 
 
     (*win_ptr)->at_completion_counter = 0;
     (*win_ptr)->shm_base_addrs = NULL;
+    (*win_ptr)->shm_base_addrs_segment_len = 0;
+    (*win_ptr)->shm_base_addrs_segment_handle = 0;
+
     /* (*win_ptr)->basic_info_table[] is set by caller; */
     (*win_ptr)->current_lock_type = MPID_LOCK_NONE;
     (*win_ptr)->shared_lock_ref_cnt = 0;

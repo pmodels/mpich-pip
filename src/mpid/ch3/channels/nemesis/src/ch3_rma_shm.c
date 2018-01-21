@@ -89,7 +89,13 @@ int MPIDI_CH3_SHM_Win_free(MPIR_Win ** win_ptr)
     /* Free shared memory region */
     if ((*win_ptr)->shm_allocated) {
         /* free shm_base_addrs that's only used for shared memory windows */
-        MPL_free((*win_ptr)->shm_base_addrs);
+        mpi_errno = MPL_shm_seg_detach((*win_ptr)->shm_base_addrs_segment_handle,
+                                       (char **) &(*win_ptr)->shm_base_addrs,
+                                       (*win_ptr)->shm_base_addrs_segment_len);
+        if (mpi_errno)
+            MPIR_ERR_POP(mpi_errno);
+
+        MPL_shm_hnd_finalize(&(*win_ptr)->shm_base_addrs_segment_handle);
 
         /* Only allocate and allocate_shared allocate new shared segments */
         if (((*win_ptr)->create_flavor == MPI_WIN_FLAVOR_SHARED ||

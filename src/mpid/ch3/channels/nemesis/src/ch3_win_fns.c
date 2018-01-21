@@ -30,7 +30,7 @@ static int MPIDI_CH3I_Win_gather_info(void *base, MPI_Aint size, int disp_unit, 
                                       MPIR_Comm * comm_ptr, MPIR_Win ** win_ptr);
 
 static int allocate_shm_segment(MPIR_Comm * node_comm_ptr, intptr_t shm_segment_len,
-                                MPL_shm_hnd_t * shm_segment_handle, char **shm_addr_ptr)
+                                MPL_shm_hnd_t * shm_segment_handle, char **shm_seg_ptr)
 {
     int mpi_errno = MPI_SUCCESS;
     int node_rank = node_comm_ptr->rank;
@@ -44,7 +44,7 @@ static int allocate_shm_segment(MPIR_Comm * node_comm_ptr, intptr_t shm_segment_
         char *serialized_hnd_ptr = NULL;
 
         mpi_errno = MPL_shm_seg_create_and_attach(*shm_segment_handle,
-                                                  shm_segment_len, shm_addr_ptr, 0);
+                                                  shm_segment_len, shm_seg_ptr, 0);
         if (mpi_errno)
             MPIR_ERR_POP(mpi_errno);
 
@@ -86,7 +86,7 @@ static int allocate_shm_segment(MPIR_Comm * node_comm_ptr, intptr_t shm_segment_
             MPIR_ERR_POP(mpi_errno);
 
         /* attach to shared memory region created by rank 0 */
-        mpi_errno = MPL_shm_seg_attach(shm_segment_handle, shm_segment_len, shm_addr_ptr, 0);
+        mpi_errno = MPL_shm_seg_attach(shm_segment_handle, shm_segment_len, shm_seg_ptr, 0);
         if (mpi_errno)
             MPIR_ERR_POP(mpi_errno);
 
@@ -368,7 +368,6 @@ static int MPIDI_CH3I_Win_detect_shm(MPIR_Win ** win_ptr)
     int i, node_size;
     MPI_Aint *base_shm_offs;
 
-    MPIR_CHKPMEM_DECL(1);
     MPIR_CHKLMEM_DECL(1);
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_CH3I_WIN_DETECT_SHM);
     MPIR_FUNC_VERBOSE_RMA_ENTER(MPID_STATE_MPIDI_CH3I_WIN_DETECT_SHM);
@@ -393,8 +392,15 @@ static int MPIDI_CH3I_Win_detect_shm(MPIR_Win ** win_ptr)
         goto fn_exit;
 
     (*win_ptr)->shm_allocated = TRUE;
-    MPIR_CHKPMEM_MALLOC((*win_ptr)->shm_base_addrs, void **,
-                        node_size * sizeof(void *), mpi_errno, "(*win_ptr)->shm_base_addrs");
+
+    /* Allocated the shared memory region for constant shm_base_addrs structure. */
+    (*win_ptr)->shm_base_addrs_segment_len = node_size * sizeof(void *);
+    mpi_errno = allocate_shm_segment((*win_ptr)->comm_ptr->node_comm,
+                                     (*win_ptr)->shm_base_addrs_segment_len,
+                                     &(*win_ptr)->shm_base_addrs_segment_handle,
+                                     (char **) &(*win_ptr)->shm_base_addrs);
+    if (mpi_errno)
+        MPIR_ERR_POP(mpi_errno);
 
     /* Compute the base address of shm buffer on each process.
      * shm_base_addrs[i] = my_shm_base_addr + off[i] */
@@ -413,7 +419,6 @@ static int MPIDI_CH3I_Win_detect_shm(MPIR_Win ** win_ptr)
     return mpi_errno;
     /* --BEGIN ERROR HANDLING-- */
   fn_fail:
-    MPIR_CHKPMEM_REAP();
     goto fn_exit;
     /* --END ERROR HANDLING-- */
 }
@@ -538,10 +543,14 @@ static int MPIDI_CH3I_Win_allocate_shm(MPI_Aint size, int disp_unit, MPIR_Info *
     node_rank = node_comm_ptr->rank;
 
     MPIR_T_PVAR_TIMER_START(RMA, rma_wincreate_allgather);
-    /* allocate memory for the base addresses, disp_units, and
-     * completion counters of all processes */
-    MPIR_CHKPMEM_MALLOC((*win_ptr)->shm_base_addrs, void **,
-                        node_size * sizeof(void *), mpi_errno, "(*win_ptr)->shm_base_addrs");
+
+    /* Allocated the shared memory region for constant shm_base_addrs structure. */
+    (*win_ptr)->shm_base_addrs_segment_len = node_size * sizeof(void *);
+    mpi_errno = allocate_shm_segment(node_comm_ptr, (*win_ptr)->shm_base_addrs_segment_len,
+                                     &(*win_ptr)->shm_base_addrs_segment_handle,
+                                     (char **) &(*win_ptr)->shm_base_addrs);
+    if (mpi_errno)
+        MPIR_ERR_POP(mpi_errno);
 
     /* get the sizes of the windows and window objectsof
      * all processes.  allocate temp. buffer for communication */

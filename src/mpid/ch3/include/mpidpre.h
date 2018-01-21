@@ -315,6 +315,9 @@ typedef struct MPIDI_Win_basic_info {
     void **shm_base_addrs; /* shared memory windows -- array of base     \
                               addresses of the windows of all processes  \
                               in this process's address space */         \
+    MPL_shm_hnd_t shm_base_addrs_segment_handle; /* handle to scalable shm_base_addrs memory   \
+                                                  * region */                                  \
+    MPI_Aint shm_base_addrs_segment_len;
     MPIDI_Win_basic_info_t *basic_info_table;                            \
     volatile int current_lock_type;   /* current lock type on this window (as target)   \
                               * (none, shared, exclusive) */             \

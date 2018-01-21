@@ -29,6 +29,50 @@ static int MPIDI_CH3I_Win_detect_shm(MPIR_Win ** win_ptr);
 static int MPIDI_CH3I_Win_gather_info(void *base, MPI_Aint size, int disp_unit, MPIR_Info * info,
                                       MPIR_Comm * comm_ptr, MPIR_Win ** win_ptr);
 
+#ifdef HAVE_PIP
+/* TODO: This optimization should be moved to MPL.*/
+static int allocate_shm_segment(MPIR_Comm * node_comm_ptr, intptr_t shm_segment_len,
+                                MPL_shm_hnd_t * shm_segment_handle ATTRIBUTE((unused)),
+                                char **shm_seg_ptr)
+{
+    int mpi_errno = MPI_SUCCESS;
+    int node_rank = node_comm_ptr->rank;
+    MPIR_Errflag_t errflag = MPIR_ERR_NONE;
+    MPI_Aint shm_seg_ptr_addr = 0;
+
+    MPIR_CHKPMEM_DECL(1);
+
+    if (node_rank == 0) {
+        MPI_Aint shm_seg_ptr_addr = 0;
+        MPIR_CHKPMEM_MALLOC(shm_seg_ptr, void **,
+                            shm_segment_len, mpi_errno, "CH3/RMA shm_seg_ptr");
+
+        shm_seg_ptr_addr = (MPI_Aint) shm_seg_ptr;
+    }
+
+    mpi_errno = MPIR_Bcast_impl(&shm_seg_ptr_addr, 1, MPI_AINT, 0, node_comm_ptr, &errflag);
+    if (mpi_errno)
+        MPIR_ERR_POP(mpi_errno);
+    MPIR_ERR_CHKANDJUMP(errflag, mpi_errno, MPI_ERR_OTHER, "**coll_fail");
+
+    if (node_rank != 0)
+        shm_seg_ptr = (char **) shm_seg_ptr_addr;
+
+    mpi_errno = MPIR_Barrier_impl(node_comm_ptr, &errflag);
+    if (mpi_errno)
+        MPIR_ERR_POP(mpi_errno);
+    MPIR_ERR_CHKANDJUMP(errflag, mpi_errno, MPI_ERR_OTHER, "**coll_fail");
+
+  fn_exit:
+    return mpi_errno;
+    /* --BEGIN ERROR HANDLING-- */
+  fn_fail:
+    MPIR_CHKPMEM_REAP();
+    goto fn_exit;
+    /* --END ERROR HANDLING-- */
+}
+#else
+
 static int allocate_shm_segment(MPIR_Comm * node_comm_ptr, intptr_t shm_segment_len,
                                 MPL_shm_hnd_t * shm_segment_handle, char **shm_seg_ptr)
 {
@@ -103,6 +147,7 @@ static int allocate_shm_segment(MPIR_Comm * node_comm_ptr, intptr_t shm_segment_
     goto fn_exit;
     /* --END ERROR HANDLING-- */
 }
+#endif
 
 #undef FUNCNAME
 #define FUNCNAME MPIDI_CH3_Win_fns_init

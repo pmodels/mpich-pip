@@ -8,6 +8,32 @@
 #include "mpidrma.h"
 
 
+#ifdef HAVE_PIP
+/* TODO: This optimization should be moved to MPL.*/
+static int free_shm_segment(MPIR_Comm * node_comm_ptr, intptr_t shm_segment_len,
+                            MPL_shm_hnd_t * shm_segment_handle, char **shm_seg_ptr)
+{
+    int mpi_errno = MPI_SUCCESS;
+    if (node_comm_ptr->rank == 0)
+        MPL_free(shm_seg_ptr);
+
+    return mpi_errno;
+}
+#else
+static int free_shm_segment(MPIR_Comm * node_comm_ptr ATTRIBUTE((unused)),
+                            intptr_t shm_segment_len, MPL_shm_hnd_t * shm_segment_handle,
+                            char **shm_seg_ptr)
+{
+    int mpi_errno = MPI_SUCCESS;
+    mpi_errno = MPL_shm_seg_detach(*shm_segment_handle, shm_seg_ptr, shm_segment_len);
+    if (mpi_errno)
+        return mpi_errno;
+
+    MPL_shm_hnd_finalize(shm_segment_handle);
+    return mpi_errno;
+}
+#endif
+
 #undef FUNCNAME
 #define FUNCNAME MPIDI_CH3_Win_shared_query
 #undef FCNAME
@@ -89,27 +115,24 @@ int MPIDI_CH3_SHM_Win_free(MPIR_Win ** win_ptr)
     /* Free shared memory region */
     if ((*win_ptr)->shm_allocated) {
         /* free shm_base_addrs that's only used for shared memory windows */
-        mpi_errno = MPL_shm_seg_detach((*win_ptr)->shm_base_addrs_segment_handle,
-                                       (char **) &(*win_ptr)->shm_base_addrs,
-                                       (*win_ptr)->shm_base_addrs_segment_len);
-        if (mpi_errno)
+        mpi_errno = free_shm_segment((*win_ptr)->comm_ptr->node_comm,
+                                     (*win_ptr)->shm_base_addrs_segment_len,
+                                     &(*win_ptr)->shm_base_addrs_segment_handle,
+                                     (char **) &(*win_ptr)->shm_base_addrs)
+            if (mpi_errno)
             MPIR_ERR_POP(mpi_errno);
-
-        MPL_shm_hnd_finalize(&(*win_ptr)->shm_base_addrs_segment_handle);
 
         /* Only allocate and allocate_shared allocate new shared segments */
         if (((*win_ptr)->create_flavor == MPI_WIN_FLAVOR_SHARED ||
              (*win_ptr)->create_flavor == MPI_WIN_FLAVOR_ALLOCATE) &&
             (*win_ptr)->shm_segment_len > 0) {
             /* detach from shared memory segment */
-            mpi_errno =
-                MPL_shm_seg_detach((*win_ptr)->shm_segment_handle,
-                                     (char **) &(*win_ptr)->shm_base_addr,
-                                     (*win_ptr)->shm_segment_len);
+            mpi_errno = free_shm_segment((*win_ptr)->comm_ptr->node_comm,
+                                         (*win_ptr)->shm_segment_len,
+                                         &(*win_ptr)->shm_segment_handle,
+                                         (char **) &(*win_ptr)->shm_base_addr);
             if (mpi_errno)
                 MPIR_ERR_POP(mpi_errno);
-
-            MPL_shm_hnd_finalize(&(*win_ptr)->shm_segment_handle);
         }
     }
 
@@ -133,24 +156,22 @@ int MPIDI_CH3_SHM_Win_free(MPIR_Win ** win_ptr)
         }
 
         /* detach from shared memory segment */
-        mpi_errno =
-            MPL_shm_seg_detach((*win_ptr)->shm_mutex_segment_handle,
-                                 (char **) &(*win_ptr)->shm_mutex, sizeof(MPIDI_CH3I_SHM_MUTEX));
+        mpi_errno = free_shm_segment((*win_ptr)->comm_ptr->node_comm,
+                                     sizeof(MPIDI_CH3I_SHM_MUTEX),
+                                     &(*win_ptr)->shm_mutex_segment_handle,
+                                     (char **) &(*win_ptr)->shm_mutex);
         if (mpi_errno)
             MPIR_ERR_POP(mpi_errno);
-
-        MPL_shm_hnd_finalize(&(*win_ptr)->shm_mutex_segment_handle);
     }
 
     /* Free shared memory region for window info */
     if ((*win_ptr)->info_shm_base_addr != NULL) {
-        mpi_errno = MPL_shm_seg_detach((*win_ptr)->info_shm_segment_handle,
-                                         (char **) &(*win_ptr)->info_shm_base_addr,
-                                         (*win_ptr)->info_shm_segment_len);
-        if (mpi_errno != MPI_SUCCESS)
+        mpi_errno = free_shm_segment((*win_ptr)->comm_ptr->node_comm,
+                                     (*win_ptr)->info_shm_segment_len,
+                                     &(*win_ptr)->info_shm_segment_handle,
+                                     (char **) &(*win_ptr)->info_shm_base_addr);
+        if (mpi_errno)
             MPIR_ERR_POP(mpi_errno);
-
-        MPL_shm_hnd_finalize(&(*win_ptr)->info_shm_segment_handle);
 
         (*win_ptr)->basic_info_table = NULL;
     }

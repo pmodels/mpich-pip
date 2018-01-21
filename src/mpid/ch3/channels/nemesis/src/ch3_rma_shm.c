@@ -14,8 +14,10 @@ static int free_shm_segment(MPIR_Comm * node_comm_ptr, intptr_t shm_segment_len,
                             MPL_shm_hnd_t * shm_segment_handle, char **shm_seg_ptr)
 {
     int mpi_errno = MPI_SUCCESS;
-    if (node_comm_ptr->rank == 0)
-        MPL_free(shm_seg_ptr);
+    if (node_comm_ptr->rank == 0 && *shm_seg_ptr != NULL) {
+        MPL_free(*shm_seg_ptr);
+        *shm_seg_ptr = NULL;
+    }
 
     return mpi_errno;
 }
@@ -73,7 +75,7 @@ int MPIDI_CH3_SHM_Win_shared_query(MPIR_Win * win_ptr, int target_rank, MPI_Aint
                 MPIR_Assert(local_i >= 0 && local_i < win_ptr->comm_ptr->node_comm->local_size);
                 *size = win_ptr->basic_info_table[i].size;
                 *disp_unit = win_ptr->basic_info_table[i].disp_unit;
-                *((void **) baseptr) = win_ptr->shm_base_addrs[local_i];
+                *((void **) baseptr) = win_ptr->shm_base_offsets[local_i] + win_ptr->shm_base_addr;
                 break;
             }
         }
@@ -85,7 +87,7 @@ int MPIDI_CH3_SHM_Win_shared_query(MPIR_Win * win_ptr, int target_rank, MPI_Aint
                     local_target_rank < win_ptr->comm_ptr->node_comm->local_size);
         *size = win_ptr->basic_info_table[target_rank].size;
         *disp_unit = win_ptr->basic_info_table[target_rank].disp_unit;
-        *((void **) baseptr) = win_ptr->shm_base_addrs[local_target_rank];
+        *((void **) baseptr) = win_ptr->shm_base_offsets[local_target_rank] + win_ptr->shm_base_addr;
     }
 
   fn_exit:
@@ -114,13 +116,13 @@ int MPIDI_CH3_SHM_Win_free(MPIR_Win ** win_ptr)
 
     /* Free shared memory region */
     if ((*win_ptr)->shm_allocated) {
-        /* free shm_base_addrs that's only used for shared memory windows */
+        /* free shm_base_offsets that's only used for shared memory windows */
         mpi_errno = free_shm_segment((*win_ptr)->comm_ptr->node_comm,
-                                     (*win_ptr)->shm_base_addrs_segment_len,
-                                     &(*win_ptr)->shm_base_addrs_segment_handle,
-                                     (char **) &(*win_ptr)->shm_base_addrs)
-            if (mpi_errno)
-            MPIR_ERR_POP(mpi_errno);
+                                     (*win_ptr)->shm_base_offsets_segment_len,
+                                     &(*win_ptr)->shm_base_offsets_segment_handle,
+                                     (char **) &(*win_ptr)->shm_base_offsets);
+        if (mpi_errno)
+        MPIR_ERR_POP(mpi_errno);
 
         /* Only allocate and allocate_shared allocate new shared segments */
         if (((*win_ptr)->create_flavor == MPI_WIN_FLAVOR_SHARED ||

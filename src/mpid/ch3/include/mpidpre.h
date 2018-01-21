@@ -312,12 +312,12 @@ typedef struct MPIDI_Win_basic_info {
 #define MPIDI_DEV_WIN_DECL                                               \
     volatile int at_completion_counter;  /* completion counter for operations \
                                  targeting this window */                \
-    void **shm_base_addrs; /* shared memory windows -- array of base     \
-                              addresses of the windows of all processes  \
+    MPI_Aint *shm_base_offsets; /* shared memory windows -- array of base     \
+                              offsets of the windows of all processes  \
                               in this process's address space */         \
-    MPL_shm_hnd_t shm_base_addrs_segment_handle; /* handle to scalable shm_base_addrs memory   \
+    MPL_shm_hnd_t shm_base_offsets_segment_handle; /* handle to scalable shm_base_offsets memory   \
                                                   * region */                                  \
-    MPI_Aint shm_base_addrs_segment_len;
+    MPI_Aint shm_base_offsets_segment_len;                                 \
     MPIDI_Win_basic_info_t *basic_info_table;                            \
     volatile int current_lock_type;   /* current lock type on this window (as target)   \
                               * (none, shared, exclusive) */             \

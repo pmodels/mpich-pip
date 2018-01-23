@@ -644,6 +644,10 @@ static int MPIDI_CH3I_Win_allocate_shm(MPI_Aint size, int disp_unit, MPIR_Info *
         if (mpi_errno)
             MPIR_ERR_POP(mpi_errno);
 
+        /* AH */
+        MPIDI_CH3I_SHM_MUTEX_INIT(*win_ptr);
+        /* AH */
+
         /* compute the base offsets of each process within the shared memory segment */
         if (node_rank == 0)
         {

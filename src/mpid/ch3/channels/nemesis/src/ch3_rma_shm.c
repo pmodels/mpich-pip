@@ -18,7 +18,6 @@ static int free_shm_segment(MPIR_Comm * node_comm_ptr, intptr_t shm_segment_len,
         MPL_free(*shm_seg_ptr);
         *shm_seg_ptr = NULL;
     }
-
     return mpi_errno;
 }
 #else

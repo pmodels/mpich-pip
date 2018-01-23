@@ -94,13 +94,11 @@ static int HYDU_pip_before(struct pip_task_fds *fds)
             }
         }
     }
-#ifdef AHA
     if (fds->idx >= 0) {
         if (HYDT_topo_bind(fds->idx) != HYD_SUCCESS) {
             fprintf(stderr, "bind process failed\n");
         }
     }
-#endif
     return 0;
 }
 
@@ -158,7 +156,8 @@ HYD_status HYDU_spawn_pip_tasks(char **client_arg, struct HYD_env * env_list,
     if ((pip_err = pip_spawn(client_arg[0],
                              client_arg,
                              fds->envv,
-                             coreno,
+                             //coreno,
+                             PIP_CPUCORE_ASIS,
                              &pipid,
                              (pip_spawnhook_t) HYDU_pip_before,
                              (pip_spawnhook_t) HYDU_pip_after, (void *) fds)) != 0) {

@@ -48,6 +48,9 @@ static int allocate_shm_segment(MPIR_Comm * node_comm_ptr, intptr_t shm_segment_
                             shm_segment_len, mpi_errno, "CH3/RMA shm_seg_ptr");
 
         shm_seg_ptr_addr = (MPI_Aint) tmp_shm_seg_ptr;
+        /* AH */
+        memset( tmp_shm_seg_ptr, 0, shm_segment_len );
+        /* AH */
     }
 
     mpi_errno = MPIR_Bcast_impl(&shm_seg_ptr_addr, 1, MPI_AINT, 0, node_comm_ptr, &errflag);

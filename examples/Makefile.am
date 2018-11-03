@@ -10,12 +10,12 @@
 # all of these?
 MPICHDIR=..
 #CC       = $(MPICHDIR)/bin/mpicc
-AM_CFLAGS   = $(WRAPPER_CFLAGS)
+AM_CFLAGS   = $(WRAPPER_CFLAGS) -fPIC
 CXXFLAGS = $(WRAPPER_CXXFLAGS)
 FFLAGS   = $(WRAPPER_FFLAGS)
 FCFLAGS  = $(WRAPPER_FCFLAGS)
 AM_LDFLAGS  =
-AM_CPPFLAGS += $(WRAPPER_CPPFLAGS)
+AM_CPPFLAGS = $(WRAPPER_CPPFLAGS)
 #DEFS     =
 
 AM_CPPFLAGS += -I$(top_builddir)/src/include -I${top_srcdir}/src/include

@@ -49,8 +49,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_recv(void *buf,
 		}
 	}
 
-	printf("Receiver myaddr= %llX, sender rmaddr= %llX\n", myaddr, rmaddr.addr);
-	fflush(stdout);
+	// printf("Receiver myaddr= %llX, sender rmaddr= %llX\n", myaddr, rmaddr.addr);
+	// fflush(stdout);
 
 	long long ssize = rmaddr.dataSz / 2L;
 	void *src = (void*) rmaddr.addr;

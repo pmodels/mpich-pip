@@ -1,5 +1,5 @@
 /* -*- Mode: C; c-basic-offset:4 ; indent-tabs-mode:nil ; -*- */
-/*  
+/*
  *  (C) 2003 by Argonne National Laboratory.
  *      See COPYRIGHT in top-level directory.
  */
@@ -48,19 +48,19 @@ ProcessUniverse pUniv;
 /* This is the home of the common debug flag */
 int MPIE_Debug = 0;
 
-/* A unique ID for each forked process, up to 2 billion.  This is 
+/* A unique ID for each forked process, up to 2 billion.  This is
    global to this file so that MPIE_SetupSingleton and MPIE_ForkProcess
    can both access it */
-static       int UniqId = 0; 
+static       int UniqId = 0;
 
 /* Local, forward references */
 static void MPIE_InstallSigHandler( int sig, void (*handler)(int) );
 
 /*
-  Fork numprocs processes, with the current PMI groupid and kvsname 
-  This is called for the initial processes and as the result of 
-  an PMI "spawn" command 
-  
+  Fork numprocs processes, with the current PMI groupid and kvsname
+  This is called for the initial processes and as the result of
+  an PMI "spawn" command
+
   world indicates which comm world this is, starting from zero
  */
 /*@
@@ -83,7 +83,7 @@ Input Parameters:
 + preamble - called before fork
 . postfork - called after fork, but before exec, in the forked child
 - postamble - called after fork in the parent (the process that executed
-     the fork).  
+     the fork).
 
   A typical use of the 'preamble' function is to open a file descriptor
   that is then inherited by the forked process.  The 'postfork' and
@@ -94,11 +94,11 @@ Input Parameters:
 
   @*/
 int MPIE_ForkProcesses( ProcessWorld *pWorld, char *envp[],
-			int (*preamble)(void*,ProcessState*), 
+			int (*preamble)(void*,ProcessState*),
 			void *preambleData,
-			int (*postfork)(void*,void*,ProcessState*), 
+			int (*postfork)(void*,void*,ProcessState*),
 			void *postforkData,
-			int (*postamble)(void*,void*,ProcessState*), 
+			int (*postamble)(void*,void*,ProcessState*),
 			void *postambleData
 			)
 {
@@ -139,13 +139,14 @@ int MPIE_ForkProcesses( ProcessWorld *pWorld, char *envp[],
 	    }
 
 	    pid = fork();
-	    if (pid < 0) {
+
+        if (pid < 0) {
 		/* Error creating process */
 		return -1;
 	    }
 	    if (pid == 0) {
 		/* Child */
-		/* exec the process (this call only returns if there is an 
+		/* exec the process (this call only returns if there is an
 		   error */
 		if (postfork) {
 		    rc = (*postfork)( preambleData, postforkData, &pState[i] );
@@ -167,10 +168,10 @@ int MPIE_ForkProcesses( ProcessWorld *pWorld, char *envp[],
 		pState[i].status = PROCESS_ALIVE;
 
 		if (postamble) {
-		    rc = (*postamble)( preambleData, postambleData, 
+		    rc = (*postamble)( preambleData, postambleData,
 				       &pState[i] );
 		    if (rc) {
-			MPL_internal_error_printf( 
+			MPL_internal_error_printf(
 				      "mpiexec postamble failed\n" );
 			/* FIXME: kill children */
 			exit(1);
@@ -178,7 +179,7 @@ int MPIE_ForkProcesses( ProcessWorld *pWorld, char *envp[],
 		}
 	    }
 	}
-	
+
 	app = app->nextApp;
     }
     return nProcess;
@@ -190,12 +191,12 @@ int MPIE_ForkProcesses( ProcessWorld *pWorld, char *envp[],
   maximum value seen.
 
 Output Parameters:
-. signaled - 0 if the process was `not` signaled, otherwise the signal 
+. signaled - 0 if the process was `not` signaled, otherwise the signal
   that terminated the process.
 
   Return Value:
   Maximum of the return status of all processes.
-  
+
   @*/
 int MPIE_ProcessGetExitStatus( int *signaled )
 {
@@ -235,7 +236,7 @@ int MPIE_ProcessGetExitStatus( int *signaled )
 #endif
 #define MAX_CLIENT_ARG 258 /* handle exename + 256 args + null terminator */
 #define MAX_CLIENT_ENV 200
-/* MAXNAMELEN is used for sizing the char arrays used for 
+/* MAXNAMELEN is used for sizing the char arrays used for
  * defining environment variables */
 #define MAXNAMELEN 1024
 
@@ -277,19 +278,19 @@ int MPIE_ExecProgram( ProcessState *pState, char *envp[] )
 
     DBG_PRINTF( ( "Creating pmi env\n" ) );
     if (pState->initWithEnv) {
-	MPL_snprintf( env_pmi_rank, MAXNAMELEN, "PMI_RANK=%d", 
+	MPL_snprintf( env_pmi_rank, MAXNAMELEN, "PMI_RANK=%d",
 		       pState->wRank );
 	client_env[j++] = env_pmi_rank;
-	MPL_snprintf( env_pmi_size, MAXNAMELEN, "PMI_SIZE=%d", 
+	MPL_snprintf( env_pmi_size, MAXNAMELEN, "PMI_SIZE=%d",
 		       app->pWorld->nProcess );
 	client_env[j++] = env_pmi_size;
 	MPL_snprintf( env_pmi_debug, MAXNAMELEN, "PMI_DEBUG=%d", MPIE_Debug );
-	client_env[j++] = env_pmi_debug; 
+	client_env[j++] = env_pmi_debug;
     }
     else {
-	/* We must also communicate the ID to the process.  
-	   This id is saved in the pState so that we can match it 
-	   when it comes back to us (it is the same as the rank 
+	/* We must also communicate the ID to the process.
+	   This id is saved in the pState so that we can match it
+	   when it comes back to us (it is the same as the rank
 	   in the simple case) */
 	MPL_snprintf( env_pmi_id, sizeof(env_pmi_id), "PMI_ID=%d",
 		       pState->id );
@@ -298,20 +299,20 @@ int MPIE_ExecProgram( ProcessState *pState, char *envp[] )
 
     MPL_snprintf( env_appnum, MAXNAMELEN, "MPI_APPNUM=%d", app->myAppNum );
     client_env[j++] = env_appnum;
-    MPL_snprintf( env_universesize, MAXNAMELEN, "MPI_UNIVERSE_SIZE=%d", 
+    MPL_snprintf( env_universesize, MAXNAMELEN, "MPI_UNIVERSE_SIZE=%d",
 		   pUniv.size );
     client_env[j++] = env_universesize;
     client_env[j]   = 0;
 
     for ( j = nj; client_env[j]; j++ )
 	if (putenv( client_env[j] )) {
-	    MPL_internal_sys_error_printf( "mpiexec", errno, 
+	    MPL_internal_sys_error_printf( "mpiexec", errno,
 			     "Could not set environment %s", client_env[j] );
 	    exit( 1 );
 	}
-    
+
     DBG_PRINTF( ( "Setup env, starting with wdir\n" ) );
-    /* change working directory if specified, replace argv[0], 
+    /* change working directory if specified, replace argv[0],
        and exec client */
     if (app->wdir) {
 	rc = chdir( app->wdir );
@@ -344,7 +345,7 @@ int MPIE_ExecProgram( ProcessState *pState, char *envp[] )
     /* pathname argument should be used here */
     if (app->path) {
 	/* Set up the search path */
-	MPL_snprintf( pathstring, sizeof(pathstring)-1, "PATH=%s", 
+	MPL_snprintf( pathstring, sizeof(pathstring)-1, "PATH=%s",
 		       app->path );
 	/* Some systems require that the path include the path to
 	   certain files or libraries, for example cygwin1.dll for
@@ -359,8 +360,8 @@ int MPIE_ExecProgram( ProcessState *pState, char *envp[] )
     rc = execvp( app->exename, client_arg );
 
     if ( rc < 0 ) {
-	MPL_internal_sys_error_printf( "mpiexec", errno, 
-					"mpiexec could not exec %s\n", 
+	MPL_internal_sys_error_printf( "mpiexec", errno,
+					"mpiexec could not exec %s\n",
 					app->exename );
 	exit( 1 );
     }
@@ -431,13 +432,13 @@ void MPIE_ProcessSetExitStatus( ProcessState *pState, int prog_stat )
     pState->exitStatus.exitStatus = rc;
     pState->exitStatus.exitSig    = sigval;
     pState->exitStatus.exitOrder  = nExited++;
-    if (sigval) 
+    if (sigval)
 	pState->exitStatus.exitReason = EXIT_SIGNALLED;
     else {
 	if (pState->status >= PROCESS_ALIVE &&
-	    pState->status <= PROCESS_COMMUNICATING) 
+	    pState->status <= PROCESS_COMMUNICATING)
 	    pState->exitStatus.exitReason = EXIT_NOFINALIZE;
-	else 
+	else
 	    pState->exitStatus.exitReason = EXIT_NORMAL;
     }
 }
@@ -449,16 +450,16 @@ void MPIE_ProcessSetExitStatus( ProcessState *pState, int prog_stat )
 /*
  * POSIX requires a SIGCHLD handler (SIG_IGN is invalid for SIGCHLD in
  * POSIX).  Thus, we have to perform the waits within the signal handler.
- * Because there may be a race condition with recording the pids in the 
+ * Because there may be a race condition with recording the pids in the
  * ProcessState structure, we provide an "unexpected child" structure to
  * hold information about processes that are not yet registered.  A clean
- * up handler records the state of those processes when we're ready to 
+ * up handler records the state of those processes when we're ready to
  * exit.
  *
  * Because signals are not queued, this handler processes all completed
- * processes.  
+ * processes.
  *
- * We must perform the wait in the handler because if we do not, we lose 
+ * We must perform the wait in the handler because if we do not, we lose
  * the exit status information (it is no longer available after the
  * signal handler exits).
  */
@@ -471,7 +472,7 @@ static volatile int skipHandler = 0;
 
 /* The "unexpected" structure is used to record any processes that
    exit before we've recorded their pids.  This is unlikely, but may
-   happen if a process fails to exec (e.g., the fork succeeds but the 
+   happen if a process fails to exec (e.g., the fork succeeds but the
    exec immediately fails).  This ensures that we can handle SIGCHLD
    events without loosing information about the child processes */
 #define MAXUNEXPECTEDPIDS 1024
@@ -480,14 +481,14 @@ static struct {
     int    stat;
 } unexpectedExit[MAXUNEXPECTEDPIDS];
 static int nUnexpected = 0;
-	 
+
 static void handle_sigchild( int sig )
 {
     int prog_stat, pid;
     int foundChild = 0;
     ProcessState *pState;
 
-    /* Set a flag to indicate that we're in the handler, and check 
+    /* Set a flag to indicate that we're in the handler, and check
        to see if we should ignore the signal */
     if (inHandler) return;
     inHandler = 1;
@@ -497,7 +498,7 @@ static void handle_sigchild( int sig )
 	   return now. */
 	inHandler = 0;
 #ifndef SA_RESETHAND
-	/* If we can't clear the "reset handler bit", we must 
+	/* If we can't clear the "reset handler bit", we must
 	   re-install the handler here */
 	MPIE_InstallSigHandler( SIGCHLD, handle_sigchild );
 #endif
@@ -511,27 +512,27 @@ static void handle_sigchild( int sig )
        have exited */
     while (1) {
 	/* Find out about any children that have exited.  Note that
-	   we don't check for EINTR because we're within a 
+	   we don't check for EINTR because we're within a
 	   signal handler. */
 	pid = waitpid( (pid_t)(-1), &prog_stat, WNOHANG );
-    
+
 	if (pid <= 0) {
-	    /* Note that it may not be an error if no child 
-	       found, depending on various race conditions.  
-	       Thus, we allow this case to happen without 
+	    /* Note that it may not be an error if no child
+	       found, depending on various race conditions.
+	       Thus, we allow this case to happen without
 	       generating an error message */
-	    /* Generate a debug message if we enter the handler but 
+	    /* Generate a debug message if we enter the handler but
 	       do not find a child */
 	    DBG_EPRINTFCOND(MPIE_Debug && !foundChild,
 			    (stderr, "Did not find child process!\n") );
 	    /* We need to reset errno since otherwise a system call being
-	       used in the main thread might see this errno and 
+	       used in the main thread might see this errno and
 	       mistakenly decide that it suffered an error */
 	    errno = 0;
 	    break;
 	}
 	foundChild = 1;
-	/* Receives a child failure or exit.  
+	/* Receives a child failure or exit.
 	   If *failure*, kill the others */
 	DBG_PRINTF(("Found process %d in sigchld handler\n", pid ) );
 	pState = MPIE_FindProcessByPid( pid );
@@ -541,10 +542,10 @@ static void handle_sigchild( int sig )
 	    pState->status = PROCESS_GONE;
 	    /* If the exit wasn't NORMAL *AND* it didn't exit without
 	       finalize but never called PMI, invoke the OnAbend. */
-	    if (pState->exitStatus.exitReason != EXIT_NORMAL && 
+	    if (pState->exitStatus.exitReason != EXIT_NORMAL &&
 		!(pState->exitStatus.exitReason == EXIT_NOFINALIZE &&
 		 pstatus == PROCESS_ALIVE)) {
-		/* Not a normal exit.  We may want to abort all 
+		/* Not a normal exit.  We may want to abort all
 		   remaining processes */
 		DBG_PRINTF(("Calling OnAbend because exitReason was not normal (was %d)\n",
 			    pState->exitStatus.exitReason ));
@@ -567,7 +568,7 @@ static void handle_sigchild( int sig )
 	}
     }
 #ifndef SA_RESETHAND
-    /* If we can't clear the "reset handler bit", we must 
+    /* If we can't clear the "reset handler bit", we must
        re-install the handler here */
     MPIE_InstallSigHandler( SIGCHLD, handle_sigchild );
 #endif
@@ -590,7 +591,7 @@ void MPIE_ProcessInit( void )
 }
 
 /*
- * Wait upto timeout seconds for all processes to exit.  
+ * Wait upto timeout seconds for all processes to exit.
  * Because we are using a SIGCHLD handler to get the exit reason and
  * status from exiting children, this routine waits for those
  * signal handlers to return.  (POSIX requires a SIGCHLD handler, and leaving
@@ -626,22 +627,22 @@ int MPIE_WaitForProcesses( ProcessUniverse *mypUniv, int timeout )
 
     DBG_PRINTF(("Done waiting for processes\n"));
 
-    /* FIXME: Indicate whether all processes have exited.  Then 
+    /* FIXME: Indicate whether all processes have exited.  Then
        mpiexec programs can decide (probably based on a debugging flag)
        what to do if they have not all exited. */
     return 0;
 }
 
 /*
- * Convert the ProcessList into an array of process states.  
+ * Convert the ProcessList into an array of process states.
  * In the general case,
  * the mpiexec program will use a resource manager to provide this function;
  * the resource manager may use a list of host names or query a sophisticated
  * resource management system.  Since the forker process manager runs all
- * processes on the same host, this function need only expand the 
+ * processes on the same host, this function need only expand the
  * process list into a process table.
  *
- * 
+ *
  * Updates the ProcessTable with the new processes, and updates the
  * number of processes.  All processses are added to the end of the
  * current array.  Only the "spec" part of the state element is initialized
@@ -656,14 +657,14 @@ int MPIE_WaitForProcesses( ProcessUniverse *mypUniv, int timeout )
  * a hostname that is not the calling host, or an architecture that does
  * not match the calling host's architecture.
  *
- * TODO: How do we handle the UNIVERSE_SIZE in this assignment (we 
+ * TODO: How do we handle the UNIVERSE_SIZE in this assignment (we
  * need at least one process from each appnum; that is, from each
  * requested set of processes.
  *
  */
 
 /*@
-  MPIE_InitWorldWithSoft - Initialize a process world from any 
+  MPIE_InitWorldWithSoft - Initialize a process world from any
   soft specifications
 
 Input Parameters:
@@ -671,7 +672,7 @@ Input Parameters:
 
 Input/Output Parameters:
 . world - Process world.  On return, the 'ProcessState' fields for
-  any soft specifications have been initialized 
+  any soft specifications have been initialized
   @*/
 int MPIE_InitWorldWithSoft( ProcessWorld *world, int maxnp )
 {
@@ -694,7 +695,7 @@ int MPIE_InitWorldWithSoft( ProcessWorld *world, int maxnp )
 		start  = tuple[0];
 		end    = tuple[1];
 		stride = tuple[2];
-		
+
 		if (stride > 0) {
 		    minNeeded += start;
 		    maxNeeded += start + stride * ( (start-end)/stride );
@@ -724,12 +725,12 @@ int MPIE_InitWorldWithSoft( ProcessWorld *world, int maxnp )
 		    start  = tuple[0];
 		    end    = tuple[1];
 		    stride = tuple[2];
-		    
+
 		    if (stride > 0) {
 			app->nProcess = start;
 		    }
 		    else if (stride < 0) {
-			app->nProcess = 
+			app->nProcess =
 			    start + stride * ( (end-start)/stride );
 		    }
 		}
@@ -752,10 +753,10 @@ int MPIE_InitWorldWithSoft( ProcessWorld *world, int maxnp )
 		    start  = tuple[0];
 		    end    = tuple[1];
 		    stride = tuple[2];
-		    
+
 		    /* Compute the "real" end */
 		    if (stride > 0) {
-			app->nProcess = 
+			app->nProcess =
 			    start + stride * ( (start-end)/stride );
 		    }
 		    else if (stride < 0) {
@@ -774,7 +775,7 @@ int MPIE_InitWorldWithSoft( ProcessWorld *world, int maxnp )
 /* ------------------------------------------------------------------------ */
 
 /*@
-  MPIE_SignalWorld - Send a signal to every process in a world 
+  MPIE_SignalWorld - Send a signal to every process in a world
 
   @*/
 int MPIE_SignalWorld( ProcessWorld *world, int signum )
@@ -782,7 +783,7 @@ int MPIE_SignalWorld( ProcessWorld *world, int signum )
     ProcessApp   *app;
     ProcessState *pState;
     int           np, i;
-    
+
     app = world->apps;
     while (app) {
 	pState = app->pState;
@@ -800,11 +801,11 @@ int MPIE_SignalWorld( ProcessWorld *world, int signum )
     }
     return 0;
 }
-    
+
 
 /* We use inKillWorld to avoid invoking KillWorld while within KillWorld.
    This could happen if kill world is called outside of the sigchild handler,
-   which (as a result of the kill action) may invoke KillWorld if the 
+   which (as a result of the kill action) may invoke KillWorld if the
 */
 static int inKillWorld = 0;
 /*@
@@ -866,20 +867,20 @@ void MPIE_PrintFailureReasons( FILE *fp )
 		exitReason = pState[i].exitStatus.exitReason;
 
 		/* If signalled and we did not send the signal (INT or KILL)*/
-		if (sig && (exitReason != EXIT_KILLED || 
+		if (sig && (exitReason != EXIT_KILLED ||
 			    (sig != SIGKILL && sig != SIGINT))) {
 #ifdef HAVE_STRSIGNAL
-		    MPL_error_printf( 
-			      "[%d]%d:Return code = %d, signaled with %s\n", 
+		    MPL_error_printf(
+			      "[%d]%d:Return code = %d, signaled with %s\n",
 			      worldnum, wrank, rc, strsignal(sig) );
 #else
-		    MPL_error_printf( 
-			      "[%d]%d:Return code = %d, signaled with %d\n", 
+		    MPL_error_printf(
+			      "[%d]%d:Return code = %d, signaled with %d\n",
 			      worldnum, wrank, rc, sig );
 #endif
 		}
 		else if (MPIE_Debug || rc) {
-		    MPL_error_printf( "[%d]%d:Return code = %d\n", 
+		    MPL_error_printf( "[%d]%d:Return code = %d\n",
 				       worldnum, wrank, rc );
 		}
 	    }
@@ -890,7 +891,7 @@ void MPIE_PrintFailureReasons( FILE *fp )
 }
 
 /*
-  
+
  */
 static void handle_forwardsig( int sig )
 {
@@ -912,9 +913,9 @@ int MPIE_ForwardSignal( int sig )
 
 /*
  * This routine contains the action to take on an abnormal exit from
- * a managed process.  The normal action is to kill all of the other processes 
+ * a managed process.  The normal action is to kill all of the other processes
  */
-static volatile int haveAbended = 0;     
+static volatile int haveAbended = 0;
 int MPIE_OnAbend( ProcessUniverse *p )
 {
     if (!p) p = &pUniv;
@@ -952,7 +953,7 @@ static void MPIE_InstallSigHandler( int sig, void (*handler)(int) )
 #ifdef USE_SIGACTION
     struct sigaction oldact;
 
-    /* Get the old signal action, reset the function and 
+    /* Get the old signal action, reset the function and
        if possible turn off the reset-handler-to-default bit, then
        set the new handler */
     sigaction( sig, (struct sigaction *)0, &oldact );
@@ -978,10 +979,10 @@ void MPIE_IgnoreSigPipe( void )
 {
     MPIE_InstallSigHandler( SIGPIPE, SIG_IGN );
 }
-/* 
- * Setup pUniv for a singleton init.  That is a single pWorld with a 
+/*
+ * Setup pUniv for a singleton init.  That is a single pWorld with a
  * single app containing a single process.
- * 
+ *
  * Note that MPIE_Args already allocated a pWorld.
  */
 int MPIE_SetupSingleton( ProcessUniverse *mypUniv )
@@ -1036,11 +1037,11 @@ int MPIE_SetupSingleton( ProcessUniverse *mypUniv )
  * be used in the "postfork" routine provided by the process manager, before
  * the user's application is exec'ed.
  *
- * To work with multithreaded applications, the process can set the 
- * affinity set to contain "size" processors, starting with the one 
- * numbered "rank".  
+ * To work with multithreaded applications, the process can set the
+ * affinity set to contain "size" processors, starting with the one
+ * numbered "rank".
  *
- * More complex affinity sets may be necessary, so we may want to 
+ * More complex affinity sets may be necessary, so we may want to
  * provide a second, more general routine (perhaps taking a cpu set mask).
  */
 int MPIE_SetProcessorAffinity( int rank, int size )
@@ -1071,7 +1072,7 @@ int MPIE_SetProcessorAffinity( int rank, int size )
     err = bindprocessor( BINDPROCESS, pid, rank );
     /* Use BINDTHREAD instead of BINDPROCESS to bind threads to processors -
        in which case, the pid is a thread id */
-    /* FIXME: How do we bind the threads when we don't have direct access to 
+    /* FIXME: How do we bind the threads when we don't have direct access to
        them? */
     if (err < 0) {
 	return 1;

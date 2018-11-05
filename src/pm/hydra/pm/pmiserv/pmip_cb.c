@@ -13,6 +13,7 @@
 
 #ifdef HAVE_PIP
 #include <pip.h>
+#include <pip_ulp.h>
 #endif
 
 struct HYD_pmcd_pmip_pmi_handle *HYD_pmcd_pmip_pmi_handle = { 0 };
@@ -258,6 +259,7 @@ static HYD_status pmi_cb(int fd, HYD_event_t events, void *userp)
             /* Deregister failed socket */
             status = HYDT_dmx_deregister_fd(fd);
             HYDU_ERR_POP(status, "unable to deregister fd\n");
+
             close(fd);
 
             if (HYD_pmcd_pmip.user_global.auto_cleanup) {
@@ -490,13 +492,12 @@ static HYD_status launch_procs(void)
 #ifdef AHAH
 #ifdef HAVE_PIP
     printf("HAVING PIP\n");
-#else
-    printf("NOT having pip\n");
 #endif
 #endif
 
 
 #ifdef HAVE_PIP
+    int nulps = atoi(getenv("NULPS"));
     {
         static int pip_initialized = 0;
         int pipid, ntasks;
@@ -740,17 +741,30 @@ static HYD_status launch_procs(void)
 
             extern HYD_status
                 HYDU_spawn_pip_tasks(char **client_arg, struct HYD_env *env_list,
-                                     int *in, int *out, int *err, int *pid, int idx);
+                                     int *in, int *out, int *err, int *pid, int idx,
+                                     int pmifd, int proc_count);
 
             status = HYDU_spawn_pip_tasks(stash.strlist, force_env,
                                           HYD_pmcd_pmip.downstream.pmi_rank[process_id] ? &dummy :
                                           &HYD_pmcd_pmip.downstream.in,
                                           &HYD_pmcd_pmip.downstream.out[process_id],
                                           &HYD_pmcd_pmip.downstream.err[process_id],
-                                          &HYD_pmcd_pmip.downstream.pid[process_id], process_id);
+                                          &HYD_pmcd_pmip.downstream.pid[process_id], process_id,
+                                          pmi_fds[1], exec->proc_count);
             HYDU_ERR_POP(status, "spawn PIP tasks returned error\n");
 
-#else /* !HAVE_PIP */
+            /* If current process is PiP task, then update pid info */
+            if (process_id % nulps == nulps - 1 ||
+                process_id == exec->proc_count - 1) {
+                int j;
+                int startIdx = process_id - (process_id % nulps);
+                int length = (process_id % nulps) + 1;
+                for (j = startIdx; j <  startIdx + length - 1; j++) {
+                    HYD_pmcd_pmip.downstream.pid[j] = HYD_pmcd_pmip.downstream.pid[process_id];
+                }
+            }
+
+#else /* !HAVE_PIP & !HAVE_ULP */
 
             status = HYDU_create_process(stash.strlist, force_env,
                                          HYD_pmcd_pmip.downstream.pmi_rank[process_id] ? &dummy :
@@ -759,25 +773,30 @@ static HYD_status launch_procs(void)
                                          &HYD_pmcd_pmip.downstream.err[process_id],
                                          &HYD_pmcd_pmip.downstream.pid[process_id], process_id);
             HYDU_ERR_POP(status, "create process returned error\n");
-#endif /* HAVE_PIP */
 
             if (HYD_pmcd_pmip.downstream.in != HYD_FD_UNSET) {
                 status = HYDU_sock_set_nonblock(HYD_pmcd_pmip.downstream.in);
                 HYDU_ERR_POP(status, "unable to set stdin socket to non-blocking\n");
             }
 
+#endif /* HAVE_PIP */
             HYD_STRING_STASH_FREE(stash);
 
             if (pmi_fds[1] != HYD_FD_UNSET) {
+#ifdef HAVE_PIP
+#else
                 close(pmi_fds[1]);
+#endif
                 pmi_fds[1] = HYD_FD_CLOSED;
             }
+
 
             process_id++;
         }
 
         HYDU_env_free_list(force_env);
         force_env = NULL;
+
     }
 
     /* Send the PID list upstream */

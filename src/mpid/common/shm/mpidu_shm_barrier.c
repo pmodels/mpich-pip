@@ -19,7 +19,7 @@ int MPIDU_shm_barrier_init(MPIDU_shm_barrier_t *barrier_region,
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDU_SHM_BARRIER_INIT);
 
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDU_SHM_BARRIER_INIT);
-    
+
     *barrier = barrier_region;
     if (init_values) {
         OPA_store_int(&(*barrier)->val, 0);
@@ -60,8 +60,14 @@ int MPIDU_shm_barrier(MPIDU_shm_barrier_t *barrier, int num_local)
     else
     {
 	/* wait */
+#ifdef HAVE_PIP
+        do {
+            pip_ulp_yield();
+        } while(OPA_load_int(&barrier->wait) == sense);
+#else
 	while (OPA_load_int(&barrier->wait) == sense)
-            MPL_sched_yield(); /* skip */
+        MPL_sched_yield(); /* skip */
+#endif
     }
     sense = 1 - sense;
 

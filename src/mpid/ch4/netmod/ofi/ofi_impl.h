@@ -66,12 +66,21 @@
     }                                                                   \
   } while (0)
 
-
+#ifdef HAVE_PIP
+#define MPIDI_OFI_PROGRESS()                                      \
+    do {                                                          \
+        mpi_errno = MPID_Progress_test();                        \
+        if (mpi_errno!=MPI_SUCCESS) MPIR_ERR_POP(mpi_errno);      \
+        pip_ulp_yield(); \
+    } while (0)
+#else
 #define MPIDI_OFI_PROGRESS()                                      \
     do {                                                          \
         mpi_errno = MPID_Progress_test();                        \
         if (mpi_errno!=MPI_SUCCESS) MPIR_ERR_POP(mpi_errno);      \
     } while (0)
+
+#endif
 
 #define MPIDI_OFI_PROGRESS_NONINLINE()                            \
     do {                                                          \

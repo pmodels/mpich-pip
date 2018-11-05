@@ -52,7 +52,7 @@ static size_t segment_len = 0;
 
 static int num_segments = 0;
 
-typedef struct asym_check_region 
+typedef struct asym_check_region
 {
     void *base_ptr;
     OPA_int_t is_asym;
@@ -93,14 +93,14 @@ int MPIDU_shm_seg_alloc(size_t len, void **ptr_p)
     MPIR_Assert(ptr_p);
 
     MPIR_CHKPMEM_MALLOC(ep, alloc_elem_t *, sizeof(alloc_elem_t), mpi_errno, "el");
-    
+
     ep->ptr_p = ptr_p;
     ep->len = len;
 
     ALLOCQ_ENQUEUE(ep);
 
     segment_len += len;
-    
+
  fn_exit:
     MPIR_CHKPMEM_COMMIT();
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDU_SHM_SEG_ALLOC);
@@ -174,7 +174,7 @@ int MPIDU_shm_seg_commit(MPIDU_shm_seg_t *memory, MPIDU_shm_barrier_t **barrier,
        allocated/attached, then before we do the assignments of the
        pointers provided in Seg_alloc(), we make sure to skip the
        region containing the barrier vars. */
-    
+
     /* add space for local barrier region.  Use a whole cacheline. */
     MPIR_Assert(MPIDU_SHM_CACHE_LINE_LEN >= sizeof(MPIDU_shm_barrier_t));
     segment_len += MPIDU_SHM_CACHE_LINE_LEN;
@@ -287,7 +287,6 @@ int MPIDU_shm_seg_commit(MPIDU_shm_seg_t *memory, MPIDU_shm_barrier_t **barrier,
 
         mpi_errno = MPIDU_shm_barrier(*barrier, num_local);
         if (mpi_errno) MPIR_ERR_POP(mpi_errno);
-
         if (local_rank == 0) {
             mpi_errno = MPL_shm_seg_remove(memory->hnd);
             if (mpi_errno) MPIR_ERR_POP(mpi_errno);
@@ -310,7 +309,7 @@ int MPIDU_shm_seg_commit(MPIDU_shm_seg_t *memory, MPIDU_shm_barrier_t **barrier,
         memory->symmetrical = 0;
 
         /* we still need to call barrier */
-	pmi_errno = PMI_Barrier();
+    	pmi_errno = PMI_Barrier();
         MPIR_ERR_CHKANDJUMP1 (pmi_errno != PMI_SUCCESS, mpi_errno, MPI_ERR_OTHER, "**pmi_barrier", "**pmi_barrier %d", pmi_errno);
 
         /* must come before barrier_init since we use OPA in that function */
@@ -362,8 +361,10 @@ int MPIDU_shm_seg_commit(MPIDU_shm_seg_t *memory, MPIDU_shm_barrier_t **barrier,
             mpi_errno = MPIDU_shm_barrier_init((MPIDU_shm_barrier_t *) memory->base_addr, barrier, TRUE);
             if (mpi_errno) MPIR_ERR_POP(mpi_errno);
 
+            /* ULP-FIXME PMI_BARRIER */
             pmi_errno = PMI_Barrier();
             MPIR_ERR_CHKANDJUMP1 (pmi_errno != PMI_SUCCESS, mpi_errno, MPI_ERR_OTHER, "**pmi_barrier", "**pmi_barrier %d", pmi_errno);
+
         }
         else
         {
@@ -443,7 +444,7 @@ int MPIDU_shm_seg_commit(MPIDU_shm_seg_t *memory, MPIDU_shm_barrier_t **barrier,
 
     mpi_errno = check_alloc(memory, *barrier, num_local, local_rank);
     if (mpi_errno) MPIR_ERR_POP(mpi_errno);
-    
+
     MPIR_CHKPMEM_COMMIT();
  fn_exit:
     MPIR_CHKLMEM_FREEALL();
@@ -474,7 +475,7 @@ int MPIDU_shm_seg_destroy(MPIDU_shm_seg_t *memory, int num_local)
         MPL_free(memory->base_addr);
     else
     {
-        mpi_errno = MPL_shm_seg_detach(memory->hnd, 
+        mpi_errno = MPL_shm_seg_detach(memory->hnd,
                         &(memory->base_addr), memory->segment_len);
         if (mpi_errno) MPIR_ERR_POP (mpi_errno);
     }

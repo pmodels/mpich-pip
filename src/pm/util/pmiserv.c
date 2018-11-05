@@ -58,7 +58,7 @@ int snprintf(char *, size_t, const char *, ...);
 
 /* There is only a single PMI master, so we allocate it here */
 static PMIMaster pmimaster = { 0, 0, 0 };
-/* Allow the user to register a routine to be used for the PMI spawn 
+/* Allow the user to register a routine to be used for the PMI spawn
    command */
 static int (*userSpawner)( ProcessWorld *, void *) = 0;
 static void *userSpawnerData = 0;
@@ -98,12 +98,12 @@ typedef struct {
     int (*handler)( PMIProcess * );
 } PMICmdMap;
 
-static PMICmdMap pmiCommands[] = { 
+static PMICmdMap pmiCommands[] = {
     { "barrier_in",     fPMI_Handle_barrier },
     { "finalize",       fPMI_Handle_finalize },
     { "abort",          fPMI_Handle_abort },
     { "create_kvs",     fPMI_Handle_create_kvs },
-    { "destroy_kvs",    fPMI_Handle_destroy_kvs }, 
+    { "destroy_kvs",    fPMI_Handle_destroy_kvs },
     { "put",            fPMI_Handle_put },
     { "get",            fPMI_Handle_get },
     { "get_my_kvsname", fPMI_Handle_get_my_kvsname },
@@ -122,10 +122,10 @@ static PMICmdMap pmiCommands[] = {
 /*
  * Create a socket fd and setup the handler on that fd.
  *
- * You must also call 
+ * You must also call
  *    PMISetupInClient (in the child process)
  * and
- *    PMISetupFinishInServer (in the originating process, also called the 
+ *    PMISetupFinishInServer (in the originating process, also called the
  *                            parent)
  * You must also pass those routines the same value for usePort.
  * If you use a port, call PMIServSetupPort to get the port and set the
@@ -147,14 +147,14 @@ int PMISetupSockets( int usePort, PMISetup *pmiinfo )
     return 0;
 }
 
-/* 
+/*
  * This is the client side of the PMIserver setup.  It communicates to the
  * client the information needed to connect to the server (currently the
  * FD of a pre-existing socket).
  *
  * The env_pmi_fd and port must be static because putenv doesn't make a copy
  * of them.  It is ok to use static variable since this is called only within
- * the client; this routine will be called only once (in the forked process, 
+ * the client; this routine will be called only once (in the forked process,
  * before the exec).
  *
  * Another wrinkle is that in order to support -(g)envnone (no environment
@@ -169,7 +169,7 @@ int PMISetupInClient( int usePort, PMISetup *pmiinfo )
 
     if (usePort == 0) {
 	close( pmiinfo->fdpair[0] );
-	MPL_snprintf( env_pmi_fd, sizeof(env_pmi_fd), "PMI_FD=%d" , 
+	MPL_snprintf( env_pmi_fd, sizeof(env_pmi_fd), "PMI_FD=%d" ,
 		       pmiinfo->fdpair[1] );
 	if (MPIE_Putenv( pmiinfo->pWorld, env_pmi_fd )) {
 	    MPL_internal_error_printf( "Could not set environment PMI_FD" );
@@ -191,7 +191,7 @@ int PMISetupInClient( int usePort, PMISetup *pmiinfo )
 	    MPL_internal_error_printf( "Required portname was not defined\n" );
 	    return 1;
 	}
-	
+
     }
     /* Indicate that this is a spawned process */
     /* MPIE_Putenv( pmiinfo->pWorld, "PMI_SPAWNED=1" ); */
@@ -199,7 +199,7 @@ int PMISetupInClient( int usePort, PMISetup *pmiinfo )
 }
 
 /* Finish setting up the server end of the PMI interface */
-int PMISetupFinishInServer( int usePort, 
+int PMISetupFinishInServer( int usePort,
 			    PMISetup *pmiinfo, ProcessState *pState )
 {
     if (usePort == 0) {
@@ -207,19 +207,19 @@ int PMISetupFinishInServer( int usePort,
 
 	/* Close the other end of the socket pair */
 	close( pmiinfo->fdpair[1] );
-	
+
 	/* We must initialize this process in the list of PMI processes. We
 	   pass the PMIProcess information to the handler */
 	pmiprocess = PMISetupNewProcess( pmiinfo->fdpair[0], pState );
-	MPIE_IORegister( pmiinfo->fdpair[0], IO_READ, PMIServHandleInput, 
+	MPIE_IORegister( pmiinfo->fdpair[0], IO_READ, PMIServHandleInput,
 			 pmiprocess );
     }
     else {
 	/* We defer the step of setting up the process until the client
-	   contacts the server.  See PMIServAcceptFromPort for the 
-	   creation of the pmiprocess structure and the initialization of 
+	   contacts the server.  See PMIServAcceptFromPort for the
+	   creation of the pmiprocess structure and the initialization of
 	   the IO handler for the PMI communication */
-	/* FIXME: We may need to record some information, such as the 
+	/* FIXME: We may need to record some information, such as the
 	   curPMIGroup, in the pState or pmiprocess entry */
 	;
     }
@@ -257,9 +257,9 @@ PMIProcess *PMISetupNewProcess( int fd, ProcessState *pState )
 
 /*
   Initialize a new PMI group that will be the parent of all
-  PMIProcesses until the next group is created 
-  Each group also starts with a KV Space 
-  
+  PMIProcesses until the next group is created
+  Each group also starts with a KV Space
+
   If there is an allocation failure, return non zero.
 */
 int PMISetupNewGroup( int nProcess, PMIKVSpace *kvs )
@@ -301,7 +301,7 @@ int PMISetupNewGroup( int nProcess, PMIKVSpace *kvs )
     return 0;
 }
 
-/* 
+/*
  * Process input from the socket connecting the mpiexec process to the
  * child process.
  *
@@ -375,7 +375,7 @@ int PMISetDebug( int flag )
 /* Additional service routines                                              */
 /* ------------------------------------------------------------------------ */
 /*
- * Get either a cmd=val or mcmd=val.  return 0 if cmd, 1 if mcmd, and -1 
+ * Get either a cmd=val or mcmd=val.  return 0 if cmd, 1 if mcmd, and -1
  * if neither (an error, since all PMI messages should contain one of
  * these).
  */
@@ -383,7 +383,7 @@ int PMIGetCommand( char *cmd, int cmdlen )
 {
     char *valptr;
     int  cmdtype = 0;
-    
+
     valptr = PMIU_getval( "cmd", cmd, cmdlen );
     if (!valptr) {
 	valptr = PMIU_getval( "mcmd", cmd, cmdlen );
@@ -401,7 +401,7 @@ int PMIGetCommand( char *cmd, int cmdlen )
 static int fPMI_Handle_finalize( PMIProcess *pentry )
 {
     char outbuf[PMIU_MAXLINE];
-    
+
     pentry->pState->status = PROCESS_FINALIZED;
 
     /* send back an acknowledgement to release the process */
@@ -425,7 +425,7 @@ static int fPMI_Handle_abort( PMIProcess *pentry )
     /* should never reach here */
     return 1;
 }
-/* 
+/*
  * Handle an incoming "barrier" command
  *
  * Need a structure that has the fds for all members of a pmi group
@@ -435,7 +435,7 @@ static int fPMI_Handle_barrier( PMIProcess *pentry )
     int i;
     PMIGroup *group = pentry->group;
 
-    DBG_PRINTFCOND(pmidebug,("Entering PMI_Handle_barrier for group %d\n", 
+    DBG_PRINTFCOND(pmidebug,("Entering PMI_Handle_barrier for group %d\n",
 		    group->groupID) );
 
     group->nInBarrier++;
@@ -464,11 +464,11 @@ static PMIKVSpace *fPMIKVSAllocate( void )
     /* We include the pid of the PMI server as a way to allow multiple
        PMI servers to coexist.  This is needed to support connect/accept
        operations when multiple mpiexec's are used, and the KVS space
-       is served directly by mpiexec (it should really have the 
+       is served directly by mpiexec (it should really have the
        hostname as well, just to avoid getting the same pid on two
        different hosts, but this is probably good enough for most
        uses) */
-    MPL_snprintf( (char *)(kvs->kvsname), MAXNAMELEN, "kvs_%d_%d", 
+    MPL_snprintf( (char *)(kvs->kvsname), MAXNAMELEN, "kvs_%d_%d",
 		   (int)getpid(), kvsnum++ );
     kvs->pairs     = 0;
     kvs->lastByIdx = 0;
@@ -497,7 +497,7 @@ static int fPMIKVSGetNewSpace( char kvsname[], int maxlen )
     MPL_strncpy( kvsname, kvs->kvsname, maxlen );
     return 0;
 }
-static int fPMIKVSFindKey( PMIKVSpace *kvs, 
+static int fPMIKVSFindKey( PMIKVSpace *kvs,
 			   const char key[], char val[], int maxval )
 {
     PMIKVPair *p;
@@ -521,7 +521,7 @@ static int fPMIKVSFindKey( PMIKVSpace *kvs,
     return 1;
 }
 
-static int fPMIKVSAddPair( PMIKVSpace *kvs, 
+static int fPMIKVSAddPair( PMIKVSpace *kvs,
 			   const char key[], const char val[] )
 {
     PMIKVPair *pair, *p, **pprev;
@@ -588,7 +588,7 @@ static int PMIKVSFree( PMIKVSpace *kvs )
     PMIKVPair *p, *pNext;
     PMIKVSpace **kPrev, *k;
     int        rc;
-    
+
     /* Recover the pairs */
     p = kvs->pairs;
     while (p) {
@@ -611,8 +611,8 @@ static int PMIKVSFree( PMIKVSpace *kvs )
 	kPrev = &(k->nextKVS);
 	k = k->nextKVS;
     }
-    
-    /* Note that if we did not find the kvs, we have an internal 
+
+    /* Note that if we did not find the kvs, we have an internal
        error, since all kv spaces are maintained within the pmimaster list */
     if (rc != 0) {
 	MPL_internal_error_printf( "Could not find KV Space %s\n",
@@ -621,7 +621,7 @@ static int PMIKVSFree( PMIKVSpace *kvs )
     }
     return 0;
 }
-/* 
+/*
  * Handle an incoming "create_kvs" command
  */
 static int fPMI_Handle_create_kvs( PMIProcess *pentry )
@@ -640,8 +640,8 @@ static int fPMI_Handle_create_kvs( PMIProcess *pentry )
     return 0;
 }
 
-/* 
- * Handle an incoming "destroy_kvs" command 
+/*
+ * Handle an incoming "destroy_kvs" command
  */
 static int fPMI_Handle_destroy_kvs( PMIProcess *pentry )
 {
@@ -649,7 +649,7 @@ static int fPMI_Handle_destroy_kvs( PMIProcess *pentry )
     PMIKVSpace *kvs;
     char        kvsname[MAXKVSNAME];
     char        message[PMIU_MAXLINE], outbuf[PMIU_MAXLINE];
-    
+
     PMIU_getval( "kvsname", kvsname, MAXKVSNAME );
     kvs = fPMIKVSFindSpace( kvsname );
     if (kvs) {
@@ -667,7 +667,7 @@ static int fPMI_Handle_destroy_kvs( PMIProcess *pentry )
     return 0;
 }
 
-/* 
+/*
  * Handle an incoming "put" command
  */
 static int fPMI_Handle_put( PMIProcess *pentry )
@@ -721,14 +721,14 @@ static int fPMI_Handle_get( PMIProcess *pentry )
     char        kvsname[MAXKVSNAME];
     char        message[PMIU_MAXLINE], key[PMIU_MAXLINE], value[PMIU_MAXLINE];
     char        outbuf[PMIU_MAXLINE];
-    
+
     PMIU_getval( "kvsname", kvsname, MAXKVSNAME );
     DBG_PRINTFCOND(pmidebug,( "Get: Finding kvs %s\n", kvsname ) );
 
     kvs = fPMIKVSFindSpace( kvsname );
     if (kvs) {
 	PMIU_getval( "key", key, PMIU_MAXLINE );
-	/* Here we could intercept internal keys, e.g., 
+	/* Here we could intercept internal keys, e.g.,
 	   pmiPrivate keys. */
 	rc = fPMIKVSFindKey( kvs, key, value, sizeof(value) );
 	if (rc == 0) {
@@ -738,16 +738,16 @@ static int fPMI_Handle_get( PMIProcess *pentry )
 	else if (rc) {
 	    rc = -1;
 	    MPL_strncpy( value, "unknown", PMIU_MAXLINE );
-	    MPL_snprintf( message, PMIU_MAXLINE, "key_%s_not_found", 
+	    MPL_snprintf( message, PMIU_MAXLINE, "key_%s_not_found",
 			   kvsname );
 	}
     }
-    else { 
+    else {
 	rc = -1;
 	MPL_strncpy( value, "unknown", PMIU_MAXLINE );
 	MPL_snprintf( message, PMIU_MAXLINE, "kvs_%s_not_found", kvsname );
     }
-    MPL_snprintf( outbuf, PMIU_MAXLINE, 
+    MPL_snprintf( outbuf, PMIU_MAXLINE,
 		   "cmd=get_result rc=%d msg=%s value=%s\n",
 		   rc, message, value );
     PMIWriteLine( pentry->fd, outbuf );
@@ -793,7 +793,7 @@ static int fPMI_Handle_get_appnum( PMIProcess *pentry )
     ProcessApp *app = pentry->pState->app;
     char outbuf[PMIU_MAXLINE];
     MPL_snprintf( outbuf, PMIU_MAXLINE, "cmd=appnum appnum=%d\n",
-		   app->myAppNum );		
+		   app->myAppNum );
     PMIWriteLine( pentry->fd, outbuf );
     DBG_PRINTFCOND(pmidebug,( "%s", outbuf ));
     return 0;
@@ -854,7 +854,7 @@ static int fPMI_Handle_getbyidx( PMIProcess *pentry )
 	j = atoi( j_char );
 	jNext = j+1;
 	if (kvs->lastIdx >= 0 && j >= kvs->lastIdx) {
-	    for (p = kvs->lastByIdx, j-= kvs->lastIdx; j-- > 0 && p; 
+	    for (p = kvs->lastByIdx, j-= kvs->lastIdx; j-- > 0 && p;
 		 p = p->nextPair );
 	}
 	else {
@@ -888,7 +888,7 @@ static int fPMI_Handle_getbyidx( PMIProcess *pentry )
 /* ------------------------------------------------------------------------- */
 /* Using a host:port instead of a pre-existing FD to establish communication.
  * Steps:
- * The server sets up a listener with 
+ * The server sets up a listener with
  *      PMIServSetupPort - also returns the host:port name (in that form)
  * When the server creates the process, the routine
  *      PMISetupSockets( 1, &pmiinfo )
@@ -907,7 +907,7 @@ static int fPMI_Handle_getbyidx( PMIProcess *pentry )
  *    The client (the created process), if using simple_pmi, does the
  *    following:
  *    PMI_Init checks for the environment variables PMI_FD and PMI_PORT,
- *      If PMI_FD is not set but PMI_PORT is set, then call 
+ *      If PMI_FD is not set but PMI_PORT is set, then call
  *        PMII_Connect_to_pm( hostname, portnum )
  *          This returns an open FD that will be used for further
  *          communication.  (the server side handles this through
@@ -928,12 +928,12 @@ static int fPMI_Handle_getbyidx( PMIProcess *pentry )
  *        a prefix on the wire protocol.
  *
  * To handle this in the server
- *       
+ *
  *
  */
 /* ------------------------------------------------------------------------- */
 /*
- * These routines are called when communication is established through 
+ * These routines are called when communication is established through
  * a port instead of an fd, and no information is communicated
  * through environment variables.
  */
@@ -947,10 +947,10 @@ static int fPMI_Handle_init_port( PMIProcess *pentry )
     /* simple_pmi wants to see cmd=initack after the initack request before
        the other data */
     PMIWriteLine( pentry->fd, "cmd=initack\n" );
-    MPL_snprintf( outbuf, PMIU_MAXLINE, "cmd=set size=%d\n", 
+    MPL_snprintf( outbuf, PMIU_MAXLINE, "cmd=set size=%d\n",
 		   pentry->group->nProcess );
     PMIWriteLine( pentry->fd, outbuf );
-    MPL_snprintf( outbuf, PMIU_MAXLINE, "cmd=set rank=%d\n", 
+    MPL_snprintf( outbuf, PMIU_MAXLINE, "cmd=set rank=%d\n",
 		   pentry->pState->wRank );
     PMIWriteLine( pentry->fd, outbuf );
     MPL_snprintf( outbuf, PMIU_MAXLINE, "cmd=set debug=%d\n", pmidebug );
@@ -961,7 +961,7 @@ static int fPMI_Handle_init_port( PMIProcess *pentry )
 
 /* Handle a spawn command.  This makes use of the spawner routine that
    was set during PMIServInit
-   
+
    Spawn command in the simple PMI is handled as multiple lines with the
    subcommands:
    nprocs=%d
@@ -987,7 +987,7 @@ static int fPMI_Handle_init_port( PMIProcess *pentry )
 
    Note that this routine must create the new "current" PMI group so that
    there will be a place for the associated KV Space.
-  
+
 */
 
 /* Maximum number of arguments */
@@ -1013,14 +1013,14 @@ static int fPMI_Handle_spawn( PMIProcess *pentry )
     if (!pentry->spawnWorld) {
 	pWorld = (ProcessWorld *)MPL_malloc( sizeof(ProcessWorld) );
 	if (!pWorld) return 1;
-	
+
 	pentry->spawnWorld = pWorld;
 	pWorld->apps       = 0;
 	pWorld->nProcess   = 0;
 	pWorld->nextWorld  = 0;
 	pWorld->nApps      = 0;
 	pWorld->worldNum   = pUniv.nWorlds++;
-	/* FIXME: What should be the defaults for the spawned env? 
+	/* FIXME: What should be the defaults for the spawned env?
 	   Should the default be the env ov the spawner? */
 	pWorld->genv       = 0;
 	pentry->spawnKVS   = fPMIKVSAllocate();
@@ -1031,9 +1031,9 @@ static int fPMI_Handle_spawn( PMIProcess *pentry )
     kvs    = pentry->spawnKVS;
 
     /* Note that each mcmd=spawn creates an app.  When all apps
-       are present, then then can be linked to a world.  A 
+       are present, then then can be linked to a world.  A
        spawnmultiple command makes use of multiple mcmd=spawn PMI
-       commands */ 
+       commands */
 
     /* Create a new app */
     app = (ProcessApp *)MPL_malloc( sizeof(ProcessApp) );
@@ -1065,7 +1065,7 @@ static int fPMI_Handle_spawn( PMIProcess *pentry )
 
     for (i=0; i<PMI_MAX_ARGS; i++) args[i] = 0;
 
-    /* Get lines until we find either cmd or mcmd (an error) or endcmd 
+    /* Get lines until we find either cmd or mcmd (an error) or endcmd
        (expected end) */
     while ((rc = PMIUBufferedReadLine( pentry, inbuf, sizeof(inbuf) )) > 0) {
 	char *cmdPtr, *valPtr, *p;
@@ -1096,9 +1096,9 @@ static int fPMI_Handle_spawn( PMIProcess *pentry )
 	else {
 	    *p = 0;
 	}
-	
+
 	/* Found an = .  value is the rest of the line */
-	valPtr = ++p; 
+	valPtr = ++p;
 	while (*p && *p != '\n') p++;
 	if (*p) *p = 0;     /* Remove the newline */
 
@@ -1145,31 +1145,31 @@ static int fPMI_Handle_spawn( PMIProcess *pentry )
 	    MPL_strncpy( key, valPtr, sizeof(key) );
 	}
 	else if (strncmp( "preput_val_", cmdPtr, 11 ) == 0) {
-	    /* Place the key,val into the space associate with the current 
+	    /* Place the key,val into the space associate with the current
 	       PMI group */
 	    fPMIKVSAddPair( kvs, key, valPtr );
 	}
 	/* Info is on a per-app basis (it is an array of info items in
 	   spawn multiple).  We can ignore most info values.
-	   The ones that are handled are processed by a 
+	   The ones that are handled are processed by a
 	   separate routine (not yet implemented).
 	   simple_pmi.c sends (key,value), so we can keep just the
 	   last key and pass the key/value to the registered info
 	   handler, along with tha app structure.  Alternately,
-	   we could save all info items and let the user's 
+	   we could save all info items and let the user's
 	   spawner handle it */
 	else if (strcmp( "info_num", cmdPtr ) == 0) {
 	    /* Number of info values */
 	    ;
 	}
 	else if (strncmp( "info_key_", cmdPtr, 9 ) == 0) {
-	    /* The actual name has a digit, which indicates *which* info 
+	    /* The actual name has a digit, which indicates *which* info
 	       key this is */
 	    curInfoIdx = atoi( cmdPtr + 9 );
 	    MPL_strncpy( curInfoKey, valPtr, sizeof(curInfoKey) );
 	}
 	else if (strncmp( "info_val_", cmdPtr, 9 ) == 0) {
-	    /* The actual name has a digit, which indicates *which* info 
+	    /* The actual name has a digit, which indicates *which* info
 	       value this is */
 	    int idx = atoi( cmdPtr + 9 );
 	    if (idx != curInfoIdx) {
@@ -1188,7 +1188,7 @@ static int fPMI_Handle_spawn( PMIProcess *pentry )
 			       cmdPtr );
 	    return 1;
 	}
-    }	
+    }
 
     if (app->nArgs > 0) {
 	app->args  = (const char **)MPL_malloc( app->nArgs * sizeof(char *) );
@@ -1203,7 +1203,7 @@ static int fPMI_Handle_spawn( PMIProcess *pentry )
     /* Now that we've read the commands, invoke the user's spawn command */
     if (totspawns == spawnnum) {
 	PMISetupNewGroup( pWorld->nProcess, kvs );
-	
+
 	if (userSpawner) {
 	    rc = (*userSpawner)( pWorld, userSpawnerData );
 	}
@@ -1212,7 +1212,7 @@ static int fPMI_Handle_spawn( PMIProcess *pentry )
 	    rc = 1;
 	    MPIE_PrintProcessWorld( stdout, pWorld );
 	}
-	
+
 	MPL_snprintf( outbuf, PMIU_MAXLINE, "cmd=spawn_result rc=%d\n", rc );
 	PMIWriteLine( pentry->fd, outbuf );
 	DBG_PRINTFCOND(pmidebug,( "%s", outbuf ));
@@ -1223,14 +1223,14 @@ static int fPMI_Handle_spawn( PMIProcess *pentry )
 	pentry->spawnKVS     = 0;
 	pentry->spawnWorld   = 0;
     }
-    
-    /* If totspawnnum != spawnnum, then we are expecting a 
+
+    /* If totspawnnum != spawnnum, then we are expecting a
        spawnmult with additional items */
     return 0;
 }
 
 /* ------------------------------------------------------------------------- */
-/*  
+/*
  * FIXME:
  * Question: What does this need to do?
  * 1.  Is nproces in range?
@@ -1252,9 +1252,9 @@ void PMI_Init_remote_proc( int fd, PMIProcess *pentry )
     fPMI_Handle_init_port( pentry );
 }
 
-/* 
+/*
  * This is a special routine.  It accepts the first input from the
- * remote process, and returns the PMI_ID value.  -1 is returned on error 
+ * remote process, and returns the PMI_ID value.  -1 is returned on error
  */
 int PMI_Init_port_connection( int fd )
 {
@@ -1277,17 +1277,17 @@ int PMI_Init_port_connection( int fd )
     return pmiid;
 }
 
-/* Implement the singleton init handshake.  See the discussion in 
+/* Implement the singleton init handshake.  See the discussion in
    simplepmi.c for the protocol */
 int PMI_InitSingletonConnection( int fd, PMIProcess *pmiprocess )
 {
     char buf[PMIU_MAXLINE], cmd[PMIU_MAXLINE];
     int  rc;
     char version[PMIU_MAXLINE], subversion[PMIU_MAXLINE];
-    
+
     /* We start with the singinit command, wait for the singinit from
        the client, and then send the singinit_info */
-    MPL_snprintf( buf, PMIU_MAXLINE, 
+    MPL_snprintf( buf, PMIU_MAXLINE,
    "cmd=singinit pmi_version=%d pmi_subversion=%d stdio=no authtype=none\n",
 	   PMI_VERSION, PMI_SUBVERSION );
     PMIWriteLine( fd, buf );
@@ -1306,10 +1306,10 @@ int PMI_InitSingletonConnection( int fd, PMIProcess *pmiprocess )
 	rc = 0;
     else
 	rc = -1;
-    
+
     MPL_snprintf( buf, PMIU_MAXLINE,
 		   "cmd=singinit_info versionok=%s stdio=no kvsname=%s\n",
-		   (rc == 0) ? "yes" : "no",  
+		   (rc == 0) ? "yes" : "no",
 		   (char *)(pmiprocess->group->kvs->kvsname) );
     PMIWriteLine( fd, buf );
 
@@ -1375,13 +1375,13 @@ int PMIReadLine( int fd, char *buf, int maxlen )
 }
 #endif
 /* ------------------------------------------------------------------------- */
-/* 
+/*
  * To handle multiple incoming command streams, we need to have a separate
  * states buffered input (replacing PMIU_readline from the client-side
  * code)
  */
 /* ------------------------------------------------------------------------- */
-/* 
+/*
  * Return the next newline-terminated string of maximum length maxlen.
  * This is a buffered version, and reads from fd as necessary.  A
  */
@@ -1426,7 +1426,7 @@ static int PMIUBufferedReadLine( PMIProcess *pentry, char *buf, int maxlen )
 	    /* FIXME: Make this an optional output */
 	    /* printf( "Readline %s\n", readbuf ); */
 	}
-	
+
 	ch   = *nextChar++;
 	*p++ = ch;
 	curlen++;

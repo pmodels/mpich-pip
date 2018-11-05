@@ -9,6 +9,12 @@
 #include "mpiimpl.h"
 #include "mpi_init.h"
 
+#ifdef HAVE_PIP
+#include <pip.h>
+#include <pip_ulp.h>
+#endif
+
+
 /*
 === BEGIN_MPI_T_CVAR_INFO_BLOCK ===
 
@@ -123,6 +129,18 @@ int MPI_Init( int *argc, char ***argv )
     int mpi_errno = MPI_SUCCESS;
     int rc ATTRIBUTE((unused));
     int threadLevel, provided;
+
+#ifdef HAVE_PIP
+    {
+        static int pip_initialized = 0;
+        int pip_err;
+        if (!pip_initialized) {
+            pip_initialized = 1;
+            pip_init(NULL, NULL, NULL, PIP_MODE_PROCESS);
+        }
+    }
+#endif
+
     MPIR_FUNC_TERSE_INIT_STATE_DECL(MPID_STATE_MPI_INIT);
 
     rc = MPID_Wtime_init();
@@ -144,7 +162,6 @@ int MPI_Init( int *argc, char ***argv )
         MPID_END_ERROR_CHECKS;
     }
 #   endif /* HAVE_ERROR_CHECKING */
-
     /* ... body of routine ... */
 
     /* Temporarily disable thread-safety.  This is needed because the
@@ -169,7 +186,6 @@ int MPI_Init( int *argc, char ***argv )
         MPL_error_printf("Unrecognized thread level %s\n", MPIR_CVAR_DEFAULT_THREAD_LEVEL);
         exit(1);
     }
-
     /* If the user requested for asynchronous progress, request for
      * THREAD_MULTIPLE. */
     if (MPIR_CVAR_ASYNC_PROGRESS)
@@ -189,7 +205,6 @@ int MPI_Init( int *argc, char ***argv )
             printf("WARNING: No MPI_THREAD_MULTIPLE support (needed for async progress)\n");
         }
     }
-
     /* ... end of body of routine ... */
     MPIR_FUNC_TERSE_INIT_EXIT(MPID_STATE_MPI_INIT);
     return mpi_errno;

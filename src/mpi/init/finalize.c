@@ -8,6 +8,11 @@
 #include "mpiimpl.h"
 #include "mpi_init.h"
 
+#ifdef HAVE_PIP
+#include <pip.h>
+#include <pip_ulp.h>
+#endif
+
 /*
 === BEGIN_MPI_T_CVAR_INFO_BLOCK ===
 
@@ -50,11 +55,11 @@ int MPI_Finalize(void) __attribute__((weak,alias("PMPI_Finalize")));
 
 /* Any internal routines can go here.  Make them static if possible */
 
-/* The following routines provide a callback facility for modules that need 
-   some code called on exit.  This method allows us to avoid forcing 
-   MPI_Finalize to know the routine names a priori.  Any module that wants to 
+/* The following routines provide a callback facility for modules that need
+   some code called on exit.  This method allows us to avoid forcing
+   MPI_Finalize to know the routine names a priori.  Any module that wants to
    have a callback calls MPIR_Add_finalize( routine, extra, priority ).
-   
+
  */
 PMPI_LOCAL void MPIR_Call_finalize_callbacks( int, int );
 typedef struct Finalize_func_t {
@@ -92,7 +97,7 @@ void MPIR_Add_finalize( int (*f)( void * ), void *extra_data, int priority )
     fstack[fstack_sp].priority     = priority;
     fstack[fstack_sp++].extra_data = extra_data;
 
-    if (priority > fstack_max_priority) 
+    if (priority > fstack_max_priority)
 	fstack_max_priority = priority;
 }
 
@@ -125,12 +130,12 @@ PMPI_LOCAL void MPIR_Call_finalize_callbacks( int, int );
 
    Notes:
    All processes must call this routine before exiting.  The number of
-   processes running `after` this routine is called is undefined; 
+   processes running `after` this routine is called is undefined;
    it is best not to perform much more than a 'return rc' after calling
    'MPI_Finalize'.
 
 Thread and Signal Safety:
-The MPI standard requires that 'MPI_Finalize' be called `only` by the same 
+The MPI standard requires that 'MPI_Finalize' be called `only` by the same
 thread that initialized MPI with either 'MPI_Init' or 'MPI_Init_thread'.
 
 .N Fortran
@@ -140,11 +145,13 @@ thread that initialized MPI with either 'MPI_Init' or 'MPI_Init_thread'.
 @*/
 int MPI_Finalize( void )
 {
+
     static const char FCNAME[] = "MPI_Finalize";
     int mpi_errno = MPI_SUCCESS;
 #if defined(HAVE_USLEEP) && defined(USE_COVERAGE)
     int rank=0;
 #endif
+
     MPIR_FUNC_TERSE_FINALIZE_STATE_DECL(MPID_STATE_MPI_FINALIZE);
 
     MPIR_ERRTEST_INITIALIZED_ORDIE();
@@ -153,7 +160,7 @@ int MPI_Finalize( void )
        be called at most once in any program) */
     MPID_THREAD_CS_ENTER(GLOBAL, MPIR_THREAD_GLOBAL_ALLFUNC_MUTEX);
     MPIR_FUNC_TERSE_FINALIZE_ENTER(MPID_STATE_MPI_FINALIZE);
-    
+
     /* ... body of routine ... */
 
     /* If the user requested for asynchronous progress, we need to
@@ -162,17 +169,17 @@ int MPI_Finalize( void )
         mpi_errno = MPIR_Finalize_async_thread();
         if (mpi_errno) goto fn_fail;
     }
-    
+
 #if defined(HAVE_USLEEP) && defined(USE_COVERAGE)
     /* We need to get the rank before freeing MPI_COMM_WORLD */
     rank = MPIR_Process.comm_world->rank;
-#endif    
+#endif
 
     /* Remove the attributes, executing the attribute delete routine.
-       Do this only if the attribute functions are defined. */ 
-    /* The standard (MPI-2, section 4.8) says that the attributes on 
+       Do this only if the attribute functions are defined. */
+    /* The standard (MPI-2, section 4.8) says that the attributes on
        MPI_COMM_SELF are deleted before almost anything else happens */
-    /* Note that the attributes need to be removed from the communicators 
+    /* Note that the attributes need to be removed from the communicators
        so that they aren't freed twice. (The communicators are released
        in MPID_Finalize) */
     if (MPIR_Process.attr_free && MPIR_Process.comm_self->attributes) {
@@ -182,19 +189,19 @@ int MPI_Finalize( void )
 	MPIR_Process.comm_self->attributes = 0;
     }
     if (MPIR_Process.attr_free && MPIR_Process.comm_world->attributes) {
-        mpi_errno = MPIR_Process.attr_free( MPI_COMM_WORLD, 
+        mpi_errno = MPIR_Process.attr_free( MPI_COMM_WORLD,
                                             &MPIR_Process.comm_world->attributes);
         if (mpi_errno) MPIR_ERR_POP(mpi_errno);
 	MPIR_Process.comm_world->attributes = 0;
     }
 
-    /* 
+    /*
      * Now that we're finalizing, we need to take control of the error handlers
-     * At this point, we will release any user-defined error handlers on 
+     * At this point, we will release any user-defined error handlers on
      * comm self and comm world
      */
-    if (MPIR_Process.comm_world->errhandler && 
-	! (HANDLE_GET_KIND(MPIR_Process.comm_world->errhandler->handle) == 
+    if (MPIR_Process.comm_world->errhandler &&
+	! (HANDLE_GET_KIND(MPIR_Process.comm_world->errhandler->handle) ==
 	   HANDLE_KIND_BUILTIN) ) {
 	int in_use;
 	MPIR_Errhandler_release_ref( MPIR_Process.comm_world->errhandler,
@@ -206,8 +213,8 @@ int MPI_Finalize( void )
         /* always set to NULL to avoid a double-release later in finalize */
         MPIR_Process.comm_world->errhandler = NULL;
     }
-    if (MPIR_Process.comm_self->errhandler && 
-	! (HANDLE_GET_KIND(MPIR_Process.comm_self->errhandler->handle) == 
+    if (MPIR_Process.comm_self->errhandler &&
+	! (HANDLE_GET_KIND(MPIR_Process.comm_self->errhandler->handle) ==
 	   HANDLE_KIND_BUILTIN) ) {
 	int in_use;
 	MPIR_Errhandler_release_ref( MPIR_Process.comm_self->errhandler,
@@ -225,7 +232,7 @@ int MPI_Finalize( void )
     MPII_Timer_finalize();
 
     /* Call the high-priority callbacks */
-    MPIR_Call_finalize_callbacks( MPIR_FINALIZE_CALLBACK_PRIO+1, 
+    MPIR_Call_finalize_callbacks( MPIR_FINALIZE_CALLBACK_PRIO+1,
 				  MPIR_FINALIZE_CALLBACK_MAX_PRIO );
 
     /* Signal the debugger that we are about to exit. */
@@ -242,7 +249,7 @@ int MPI_Finalize( void )
     /* Call the low-priority (post Finalize) callbacks */
     MPIR_Call_finalize_callbacks( 0, MPIR_FINALIZE_CALLBACK_PRIO-1 );
 
-    /* At this point, if there has been a failure, exit before 
+    /* At this point, if there has been a failure, exit before
        completing the finalize */
     if (mpi_errno != MPI_SUCCESS) goto fn_fail;
 
@@ -251,7 +258,7 @@ int MPI_Finalize( void )
     if (!MPIR_T_is_initialized())
         MPIR_T_env_finalize();
 
-    /* FIXME: Many of these debugging items could/should be callbacks, 
+    /* FIXME: Many of these debugging items could/should be callbacks,
        added to the finalize callback list */
     /* FIXME: the memory tracing code block should be a finalize callback */
     /* If memory debugging is enabled, check the memory here, after all
@@ -272,7 +279,7 @@ int MPI_Finalize( void )
        the rank is at the head of the line) */
     {
 	if (MPIR_CVAR_MEMDUMP) {
-	    /* The second argument is the min id to print; memory allocated 
+	    /* The second argument is the min id to print; memory allocated
 	       after MPI_Init is given an id of one.  This allows us to
 	       ignore, if desired, memory leaks in the MPID_Init call */
 	    MPL_trdump( (void *)0, -1 );
@@ -283,11 +290,11 @@ int MPI_Finalize( void )
 #if defined(HAVE_USLEEP) && defined(USE_COVERAGE)
     /* If performing coverage analysis, make each process sleep for
        rank * 100 ms, to give time for the coverage tool to write out
-       any files.  It would be better if the coverage tool and runtime 
+       any files.  It would be better if the coverage tool and runtime
        was more careful about file updates, though the lack of OS support
        for atomic file updates makes this harder. */
-    /* 
-       On some systems, a 0.1 second delay appears to be too short for 
+    /*
+       On some systems, a 0.1 second delay appears to be too short for
        the file system.  This code allows the use of the environment
        variable MPICH_FINALDELAY, which is the delay in milliseconds.
        It must be an integer value.
@@ -296,11 +303,18 @@ int MPI_Finalize( void )
 	int microseconds = 100000;
 	char *delayStr = getenv( "MPICH_FINALDELAY" );
 	if (delayStr) {
-	    /* Because this is a maintainer item, we won't check for 
+	    /* Because this is a maintainer item, we won't check for
 	       errors in the delayStr */
 	    microseconds = 1000 * atoi( delayStr );
 	}
 	usleep( rank * microseconds );
+    }
+#endif
+
+#ifdef HAVE_PIP
+
+    if (pip_is_task()) {
+        pip_ulp_yield();
     }
 #endif
 
@@ -313,7 +327,7 @@ int MPI_Finalize( void )
     /* --BEGIN ERROR HANDLING-- */
 #   ifdef HAVE_ERROR_CHECKING
     {
-	mpi_errno = MPIR_Err_create_code(mpi_errno, MPIR_ERR_RECOVERABLE, 
+	mpi_errno = MPIR_Err_create_code(mpi_errno, MPIR_ERR_RECOVERABLE,
 			FCNAME, __LINE__, MPI_ERR_OTHER, "**mpi_finalize", 0);
     }
 #   endif
@@ -323,4 +337,4 @@ int MPI_Finalize( void )
     }
     goto fn_exit;
     /* --END ERROR HANDLING-- */
-}
+ }

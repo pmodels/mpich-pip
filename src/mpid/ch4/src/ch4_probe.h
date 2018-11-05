@@ -51,6 +51,9 @@ MPL_STATIC_INLINE_PREFIX int MPID_Probe(int source,
             MPIR_ERR_POP(mpi_errno);
         }
         MPID_Progress_test();
+#ifdef HAVE_PIP
+        pip_ulp_yield();
+#endif
     }
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_PROBE);
@@ -116,6 +119,9 @@ MPL_STATIC_INLINE_PREFIX int MPID_Mprobe(int source,
             MPIR_ERR_POP(mpi_errno);
         }
         MPID_Progress_test();
+#ifdef HAVE_PIP
+        pip_ulp_yield();
+#endif
     }
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_MPROBE);

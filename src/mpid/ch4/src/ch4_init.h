@@ -17,6 +17,8 @@
 #include "strings.h"
 #include "datatype.h"
 
+#include "pip.h"
+
 #ifdef USE_PMI2_API
 /* PMI does not specify a max size for jobid_size in PMI2_Job_GetId.
    CH3 uses jobid_size=MAX_JOBID_LEN=1024 when calling
@@ -148,7 +150,6 @@ MPL_STATIC_INLINE_PREFIX int MPID_Init(int *argc,
     }
 #else
     pmi_errno = PMI_Init(&has_parent);
-
     if (pmi_errno != PMI_SUCCESS) {
         MPIR_ERR_SETANDJUMP1(pmi_errno, MPI_ERR_OTHER, "**pmi_init", "**pmi_init %d", pmi_errno);
     }

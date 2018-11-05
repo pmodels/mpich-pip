@@ -140,7 +140,8 @@ static inline int MPIDI_POSIX_mpi_init_hook(int rank, int size, int *n_vnis_prov
         MPIR_ERR_POP(mpi_errno);
 
     /* local procs barrier */
-    mpi_errno = MPIDU_shm_barrier(MPIDI_POSIX_mem_region.barrier, num_local);
+    /* ULP-FIXME */
+//    mpi_errno = MPIDU_shm_barrier(MPIDI_POSIX_mem_region.barrier, num_local);
 
     if (mpi_errno)
         MPIR_ERR_POP(mpi_errno);
@@ -181,12 +182,12 @@ static inline int MPIDI_POSIX_mpi_init_hook(int rank, int size, int *n_vnis_prov
                     (MPIDI_POSIX_mem_region.RecvQ[grank], MPIDI_POSIX_CACHE_LINE_LEN));
     }
 
-    /* make pointers to our queues global so we don't have to dereference the array */
+   /* make pointers to our queues global so we don't have to dereference the array */
     MPIDI_POSIX_mem_region.my_freeQ = MPIDI_POSIX_mem_region.FreeQ[rank];
     MPIDI_POSIX_mem_region.my_recvQ = MPIDI_POSIX_mem_region.RecvQ[rank];
-
+    /* ULP-FIXME */
     /* local barrier */
-    mpi_errno = MPIDU_shm_barrier(MPIDI_POSIX_mem_region.barrier, num_local);
+//    mpi_errno = MPIDU_shm_barrier(MPIDI_POSIX_mem_region.barrier, num_local);
 
     if (mpi_errno)
         MPIR_ERR_POP(mpi_errno);

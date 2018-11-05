@@ -95,7 +95,7 @@ MPIR_Per_thread_t MPIR_Per_thread = { 0 };
 MPID_Thread_tls_t MPIR_Per_thread_key;
 
 /* These are initialized as null (avoids making these into common symbols).
-   If the Fortran binding is supported, these can be initialized to 
+   If the Fortran binding is supported, these can be initialized to
    their Fortran values (MPI only requires that they be valid between
    MPI_Init and MPI_Finalize) */
 MPIU_DLL_SPEC MPI_Fint *MPI_F_STATUS_IGNORE ATTRIBUTE((used)) = 0;
@@ -106,7 +106,7 @@ MPIU_DLL_SPEC MPI_Fint *MPI_F_STATUSES_IGNORE ATTRIBUTE((used)) = 0;
 extern const char MPII_Version_device[];
 
 /* Make sure the Fortran symbols are initialized unless it will cause problems
-   for C programs linked with the C compilers (i.e., not using the 
+   for C programs linked with the C compilers (i.e., not using the
    compilation scripts).  These provide the declarations for the initialization
    routine and the variable used to indicate whether the init needs to be
    called. */
@@ -118,7 +118,7 @@ extern const char MPII_Version_device[];
 #endif
 void mpirinitf_(void);
 /* Note that we don't include MPIR_F_NeedInit because we unconditionally
-   call mpirinitf in this case, and the Fortran binding routines 
+   call mpirinitf in this case, and the Fortran binding routines
    do not test MPIR_F_NeedInit when HAVE_MPI_F_INIT_WORKS_WITH_C is set */
 #endif
 
@@ -209,7 +209,7 @@ static int thread_cs_init( void )
     MPIR_Assert(err == 0);
 
 #elif MPICH_THREAD_GRANULARITY == MPICH_THREAD_GRANULARITY__LOCKFREE
-/* Updates to shared data and access to shared services is handled without 
+/* Updates to shared data and access to shared services is handled without
    locks where ever possible. */
 #error lock-free not yet implemented
 
@@ -258,7 +258,7 @@ int MPIR_Thread_CS_Finalize( void )
 
 
 #elif MPICH_THREAD_GRANULARITY == MPICH_THREAD_GRANULARITY__LOCKFREE
-/* Updates to shared data and access to shared services is handled without 
+/* Updates to shared data and access to shared services is handled without
    locks where ever possible. */
 #error lock-free not yet implemented
 
@@ -324,7 +324,7 @@ int MPIR_Init_thread(int * argc, char ***argv, int required, int * provided)
     int exit_init_cs_on_failure = 0;
     MPIR_Info *info_ptr;
 
-    /* For any code in the device that wants to check for runtime 
+    /* For any code in the device that wants to check for runtime
        decisions on the value of isThreaded, set a provisional
        value here. We could let the MPID_Init routine override this */
 #if defined MPICH_IS_THREADED
@@ -339,18 +339,18 @@ int MPIR_Init_thread(int * argc, char ***argv, int required, int * provided)
 
     /* FIXME: Move to os-dependent interface? */
 #ifdef HAVE_WINDOWS_H
-    /* prevent the process from bringing up an error message window if mpich 
+    /* prevent the process from bringing up an error message window if mpich
        asserts */
     _CrtSetReportMode( _CRT_ASSERT, _CRTDBG_MODE_FILE );
     _CrtSetReportFile( _CRT_ASSERT, _CRTDBG_FILE_STDERR );
     _CrtSetReportHook2(_CRT_RPTHOOK_INSTALL, assert_hook);
 #ifdef _WIN64
     {
-    /* FIXME: (Windows) This severly degrades performance but fixes alignment 
+    /* FIXME: (Windows) This severly degrades performance but fixes alignment
        issues with the datatype code. */
     /* Prevent misaligned faults on Win64 machines */
     UINT mode, old_mode;
-    
+
     old_mode = SetErrorMode(SEM_NOALIGNMENTFAULTEXCEPT);
     mode = old_mode | SEM_NOALIGNMENTFAULTEXCEPT;
     SetErrorMode(mode);
@@ -384,13 +384,13 @@ int MPIR_Init_thread(int * argc, char ***argv, int required, int * provided)
     MPIR_Process.attrs.universe        = MPIR_UNIVERSE_SIZE_NOT_SET;
     MPIR_Process.attrs.wtime_is_global = 0;
 
-    /* Set the functions used to duplicate attributes.  These are 
+    /* Set the functions used to duplicate attributes.  These are
        when the first corresponding keyval is created */
     MPIR_Process.attr_dup  = 0;
     MPIR_Process.attr_free = 0;
 
 #ifdef HAVE_CXX_BINDING
-    /* Set the functions used to call functions in the C++ binding 
+    /* Set the functions used to call functions in the C++ binding
        for reductions and attribute operations.  These are null
        until a C++ operation is defined.  This allows the C code
        that implements these operations to not invoke a C++ code
@@ -411,7 +411,7 @@ int MPIR_Init_thread(int * argc, char ***argv, int required, int * provided)
     MPIR_C_MPI_ERRCODES_IGNORE = MPI_ERRCODES_IGNORE;
 #endif
 
-    /* This allows the device to select an alternative function for 
+    /* This allows the device to select an alternative function for
        dimsCreate */
     MPIR_Process.dimsCreate     = 0;
 
@@ -425,7 +425,7 @@ int MPIR_Init_thread(int * argc, char ***argv, int required, int * provided)
     MPIR_Process.comm_world->context_id	    = 0 << MPIR_CONTEXT_PREFIX_SHIFT;
     MPIR_Process.comm_world->recvcontext_id = 0 << MPIR_CONTEXT_PREFIX_SHIFT;
     MPIR_Process.comm_world->comm_kind	    = MPIR_COMM_KIND__INTRACOMM;
-    /* This initialization of the comm name could be done only when 
+    /* This initialization of the comm name could be done only when
        comm_get_name is called */
     MPL_strncpy(MPIR_Process.comm_world->name, "MPI_COMM_WORLD",
 		 MPI_MAX_OBJECT_NAME);
@@ -449,13 +449,13 @@ int MPIR_Init_thread(int * argc, char ***argv, int required, int * provided)
     MPL_strncpy(MPIR_Process.icomm_world->name, "MPI_ICOMM_WORLD",
 		 MPI_MAX_OBJECT_NAME);
 
-    /* Note that these communicators are not ready for use - MPID_Init 
+    /* Note that these communicators are not ready for use - MPID_Init
        will setup self and world, and icomm_world if it desires it. */
 #endif
 
     MPIR_Process.comm_parent = NULL;
 
-    /* Setup the initial communicator list in case we have 
+    /* Setup the initial communicator list in case we have
        enabled the debugger message-queue interface */
     MPII_COMML_REMEMBER( MPIR_Process.comm_world );
     MPII_COMML_REMEMBER( MPIR_Process.comm_self );
@@ -472,12 +472,11 @@ int MPIR_Init_thread(int * argc, char ***argv, int required, int * provided)
             ;
     }
 
-
 #if defined(HAVE_ERROR_CHECKING) && (HAVE_ERROR_CHECKING == MPID_ERROR_LEVEL_RUNTIME)
     MPIR_Process.do_error_checks = MPIR_CVAR_ERROR_CHECKING;
 #endif
 
-    /* define MPI as initialized so that we can use MPI functions within 
+    /* define MPI as initialized so that we can use MPI functions within
        MPID_Init if necessary */
     OPA_store_int(&MPIR_Process.mpich_state, MPICH_MPI_STATE__IN_INIT);
 
@@ -495,8 +494,8 @@ int MPIR_Init_thread(int * argc, char ***argv, int required, int * provided)
     info_ptr->next  = NULL;
     info_ptr->key   = NULL;
     info_ptr->value = NULL;
-    
-    mpi_errno = MPID_Init(argc, argv, required, &thread_provided, 
+
+    mpi_errno = MPID_Init(argc, argv, required, &thread_provided,
 			  &has_args, &has_env);
     if (mpi_errno) MPIR_ERR_POP(mpi_errno);
 
@@ -532,9 +531,9 @@ int MPIR_Init_thread(int * argc, char ***argv, int required, int * provided)
 #else
     MPL_trinit( MPIR_Process.comm_world->rank, 0 );
 #endif
-    /* Indicate that we are near the end of the init step; memory 
-       allocated already will have an id of zero; this helps 
-       separate memory leaks in the initialization code from 
+    /* Indicate that we are near the end of the init step; memory
+       allocated already will have an id of zero; this helps
+       separate memory leaks in the initialization code from
        leaks in the "active" code */
 #endif
 #ifdef MPL_USE_DBG_LOGGING
@@ -567,12 +566,12 @@ int MPIR_Init_thread(int * argc, char ***argv, int required, int * provided)
 #endif
 
     /* Initialize the C versions of the Fortran link-time constants.
-       
-       We now initialize the Fortran symbols from within the Fortran 
+
+       We now initialize the Fortran symbols from within the Fortran
        interface in the routine that first needs the symbols.
-       This fixes a problem with symbols added by a Fortran compiler that 
+       This fixes a problem with symbols added by a Fortran compiler that
        are not part of the C runtime environment (the Portland group
-       compilers would do this) 
+       compilers would do this)
     */
 #if defined(HAVE_FORTRAN_BINDING) && defined(HAVE_MPI_F_INIT_WORKS_WITH_C)
     mpirinitf_();
@@ -586,7 +585,7 @@ int MPIR_Init_thread(int * argc, char ***argv, int required, int * provided)
 #endif
 
     /* Let the device know that the rest of the init process is completed */
-    if (mpi_errno == MPI_SUCCESS) 
+    if (mpi_errno == MPI_SUCCESS)
 	mpi_errno = MPID_InitCompleted();
 
     MPID_THREAD_CS_EXIT(GLOBAL, MPIR_THREAD_GLOBAL_ALLFUNC_MUTEX);
@@ -620,7 +619,7 @@ fn_fail:
    MPI_Init_thread - Initialize the MPI execution environment
 
 Input Parameters:
-+  argc - Pointer to the number of arguments 
++  argc - Pointer to the number of arguments
 .  argv - Pointer to the argument vector
 -  required - Level of desired thread support
 
@@ -628,20 +627,20 @@ Output Parameters:
 .  provided - Level of provided thread support
 
    Command line arguments:
-   MPI specifies no command-line arguments but does allow an MPI 
-   implementation to make use of them.  See 'MPI_INIT' for a description of 
+   MPI specifies no command-line arguments but does allow an MPI
+   implementation to make use of them.  See 'MPI_INIT' for a description of
    the command line arguments supported by 'MPI_INIT' and 'MPI_INIT_THREAD'.
 
    Notes:
    The valid values for the level of thread support are\:
-+ MPI_THREAD_SINGLE - Only one thread will execute. 
-. MPI_THREAD_FUNNELED - The process may be multi-threaded, but only the main 
-  thread will make MPI calls (all MPI calls are funneled to the 
-   main thread). 
-. MPI_THREAD_SERIALIZED - The process may be multi-threaded, and multiple 
-  threads may make MPI calls, but only one at a time: MPI calls are not 
-  made concurrently from two distinct threads (all MPI calls are serialized). 
-- MPI_THREAD_MULTIPLE - Multiple threads may call MPI, with no restrictions. 
++ MPI_THREAD_SINGLE - Only one thread will execute.
+. MPI_THREAD_FUNNELED - The process may be multi-threaded, but only the main
+  thread will make MPI calls (all MPI calls are funneled to the
+   main thread).
+. MPI_THREAD_SERIALIZED - The process may be multi-threaded, and multiple
+  threads may make MPI calls, but only one at a time: MPI calls are not
+  made concurrently from two distinct threads (all MPI calls are serialized).
+- MPI_THREAD_MULTIPLE - Multiple threads may call MPI, with no restrictions.
 
 Notes for Fortran:
    Note that the Fortran binding for this routine does not have the 'argc' and
@@ -723,7 +722,7 @@ int MPI_Init_thread( int *argc, char ***argv, int required, int *provided )
 #   ifdef HAVE_ERROR_REPORTING
     {
 	mpi_errno = MPIR_Err_create_code(
-	    mpi_errno, MPIR_ERR_RECOVERABLE, FCNAME, __LINE__, MPI_ERR_OTHER, 
+	    mpi_errno, MPIR_ERR_RECOVERABLE, FCNAME, __LINE__, MPI_ERR_OTHER,
 	    "**mpi_init_thread",
 	    "**mpi_init_thread %p %p %d %p", argc, argv, required, provided);
     }

@@ -241,7 +241,6 @@ int main(int argc, char **argv)
 
                     done++;
                 }
-
         /* If no more processes are pending, break out */
         if (done == HYD_pmcd_pmip.local.proxy_process_count)
             break;
@@ -283,6 +282,9 @@ int main(int argc, char **argv)
 
   fn_exit:
     HYDU_dbg_finalize();
+#ifdef HAVE_PIP
+    pip_fin();
+#endif
     return status;
 
   fn_fail:

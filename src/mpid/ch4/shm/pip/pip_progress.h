@@ -1,8 +1,17 @@
 #ifndef PIP_PROGRESS_INCLUDED
 #define PIP_PROGRESS_INCLUDED
 
+#define COOP_COPY_DATA_THRESHOLD 4096
+extern char *COLL_SHMEM_MODULE;
 int MPIR_Wait_impl(MPIR_Request * request_ptr, MPI_Status * status);
 
+typedef struct pipHeader {
+	long long addr;
+	long long dataSz;
+} pipHeader;
+
+#undef FCNAME
+#define FCNAME MPL_QUOTE(MPID_PIP_Wait)
 MPL_STATIC_INLINE_PREFIX int MPID_PIP_Wait(MPIR_Request *request_ptr) {
 	int mpi_errno = MPI_SUCCESS;
 	int errLine;
@@ -28,3 +37,5 @@ fn_fail:
 fn_exit:
 	return mpi_errno;
 }
+
+#endif

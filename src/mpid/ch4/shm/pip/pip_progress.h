@@ -1,7 +1,10 @@
 #ifndef PIP_PROGRESS_INCLUDED
 #define PIP_PROGRESS_INCLUDED
+#include <papi.h>
 
 #define COOP_COPY_DATA_THRESHOLD 4096
+#define STAGE_PROFILE
+
 extern char *COLL_SHMEM_MODULE;
 int MPIR_Wait_impl(MPIR_Request * request_ptr, MPI_Status * status);
 
@@ -37,5 +40,57 @@ fn_fail:
 fn_exit:
 	return mpi_errno;
 }
+
+// MPL_STATIC_INLINE_PREFIX int initNativeEventSet() {
+// 	int retval;
+// 	int EventSet = PAPI_NULL;
+// 	// long long *values;
+// 	int code;
+
+// 	int r, i;
+// 	const PAPI_component_info_t *cmpinfo = NULL;
+// 	PAPI_event_info_t evinfo;
+
+// 	retval = PAPI_library_init(PAPI_VER_CURRENT);
+// 	if (retval != PAPI_VER_CURRENT) {
+// 		printf("%s: PAPI library init error [line %s].\n", __FUNCTION__, __LINE__);
+// 		return -1;
+// 	}
+
+// 	/* Create EventSet */
+// 	retval = PAPI_create_eventset(&EventSet);
+// 	if (retval != PAPI_OK) {
+// 		printf("%s: PAPI_create_eventset() [line %s].", __FILE__, __LINE__);
+// 		return -1;
+// 	}
+
+// 	/* Add all events */
+
+// 	code = PAPI_NATIVE_MASK;
+
+// 	// r = PAPI_enum_cmp_event( &code, PAPI_ENUM_FIRST, rapl_cid );
+// 	retval = PAPI_event_name_to_code("rapl:::PACKAGE_ENERGY:PACKAGE0", &code);
+// 	if (retval != PAPI_OK) {
+// 		printf("Error translating %#x\n", code);
+// 		return -1;
+// 	}
+// 	retval = PAPI_add_event(EventSet, code);
+// 	if (retval != PAPI_OK) {
+// 		printf("Error adding rapl:::PACKAGE_ENERGY:PACKAGE0\n");
+// 		return -1;
+// 	}
+// 	retval = PAPI_event_name_to_code("rapl:::PACKAGE_ENERGY:PACKAGE1", &code);
+// 	if (retval != PAPI_OK) {
+// 		printf("Error translating %#x\n", code);
+// 		return -1;
+// 	}
+// 	retval = PAPI_add_event(EventSet, code);
+// 	if (retval != PAPI_OK) {
+// 		printf("Error adding rapl:::PACKAGE_ENERGY:PACKAGE1\n");
+// 		return -1;
+// 	}
+
+// 	return EventSet;
+// }
 
 #endif

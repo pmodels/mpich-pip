@@ -22,6 +22,12 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_SHM_mpi_send(const void *buf, MPI_Aint count,
 	MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_SHM_MPI_SEND);
 	char* SHMEM_MODULE = getenv("SHMEM_MODULE");
 	if (!strcmp(SHMEM_MODULE, "PIP") && !strcmp(COLL_SHMEM_MODULE, "PIP")) {
+		static int flag = 0;
+		if (!flag) {
+			printf("CALL PIP\n");
+			fflush(stdout);
+			flag = 1;
+		}
 		ret =
 		    MPIDI_PIP_mpi_send(buf, count, datatype, rank, tag, comm, context_offset, addr, request);
 	} else {

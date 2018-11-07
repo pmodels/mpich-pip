@@ -35,7 +35,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_recv(void *buf,
 	}
 
 	MPIR_Request *sendReq;
-	mpi_errno = MPIDI_POSIX_mpi_send(&myaddr, 1, MPI_LONG_LONG, rank, tag, comm, context_offset, NULL, &sendReq);
+	mpi_errno = MPIDI_POSIX_mpi_send(&myaddr, 1, MPI_LONG_LONG, rank, 0, comm, context_offset, NULL, &sendReq);
 	if (mpi_errno != MPI_SUCCESS) {
 		errLine = __LINE__;
 		goto fn_fail;
@@ -63,7 +63,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_recv(void *buf,
 	}
 
 	int ack;
-	mpi_errno = MPIDI_POSIX_mpi_send(&ack, 1, MPI_INT, rank, tag, comm, context_offset, NULL, request);
+	mpi_errno = MPIDI_POSIX_mpi_send(&ack, 1, MPI_INT, rank, 0, comm, context_offset, NULL, request);
 	if (mpi_errno != MPI_SUCCESS) {
 		errLine = __LINE__;
 		goto fn_fail;

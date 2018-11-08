@@ -21,7 +21,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_SHM_mpi_send(const void *buf, MPI_Aint count,
 	MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_SHM_MPI_SEND);
 	MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_SHM_MPI_SEND);
 	char* SHMEM_MODULE = getenv("SHMEM_MODULE");
-	if (!strcmp(SHMEM_MODULE, "PIP") && !strcmp(COLL_SHMEM_MODULE, "PIP")) {
+	if (!strcmp(SHMEM_MODULE, "PIP") && !strcmp(COLL_SHMEM_MODULE, "PIP") && tag == 777) {
 		static int flag = 0;
 		if (!flag) {
 			printf("CALL PIP\n");
@@ -186,7 +186,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_SHM_mpi_recv(void *buf, MPI_Aint count, MPI_D
 	MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_SHM_MPI_RECV);
 	MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_SHM_MPI_RECV);
 	char* SHMEM_MODULE = getenv("SHMEM_MODULE");
-	if (!strcmp(SHMEM_MODULE, "PIP") && !strcmp(COLL_SHMEM_MODULE, "PIP")) {
+	if (!strcmp(SHMEM_MODULE, "PIP") && !strcmp(COLL_SHMEM_MODULE, "PIP") && tag == 777) {
 		ret = MPIDI_PIP_mpi_recv(buf, count, datatype, rank, tag, comm, context_offset,
 		                         status, request);
 

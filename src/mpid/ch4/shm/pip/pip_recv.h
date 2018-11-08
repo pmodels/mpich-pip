@@ -28,16 +28,17 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_recv(void *buf,
 	long long myaddr = (long long) buf;
 	pipHeader rmaddr;
 
-#ifdef STAGE_PROFILE
-	int events[2] = {PAPI_L3_TCM, PAPI_TLB_DM};
-	long long values[2];
-	int myrank = comm->rank;
-	char buffer[8];
-	char file[64] = "pip-recv_";
-	double synctime = 0.0, copytime = 0.0;
+// #ifdef STAGE_PROFILE
+// 	int events[2] = {PAPI_L3_TCM, PAPI_TLB_DM};
+// 	long long values[2];
+// 	int myrank = comm->rank;
+// 	char buffer[8];
+// 	char file[64] = "pip-recv_";
+// 	double synctime = 0.0, copytime = 0.0;
 
-	synctime -= MPI_Wtime();
-#endif
+// 	synctime -= MPI_Wtime();
+// #endif
+#ifndef PIP_SYNC
 	mpi_errno = MPIDI_POSIX_mpi_recv(&rmaddr, 2, MPI_LONG_LONG, rank, tag, comm, context_offset, status, request);
 	if (mpi_errno != MPI_SUCCESS) {
 		errLine = __LINE__;
@@ -58,38 +59,72 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_recv(void *buf,
 			goto fn_fail;
 		}
 	}
-#ifdef STAGE_PROFILE
-	synctime += MPI_Wtime();
-	sprintf(buffer, "%d_", myrank);
-	strcat(file, buffer);
-	sprintf(buffer, "%lld", rmaddr.dataSz);
-	strcat(file, buffer);
-	strcat(file, ".log");
-
-	FILE *fp = fopen(file, "a");
 #endif
+// #ifdef STAGE_PROFILE
+// 	synctime += MPI_Wtime();
+// 	sprintf(buffer, "%d_", myrank);
+// 	strcat(file, buffer);
+// 	sprintf(buffer, "%lld", rmaddr.dataSz);
+// 	strcat(file, buffer);
+// 	strcat(file, ".log");
+
+// 	FILE *fp = fopen(file, "a");
+// #endif
 	// printf("Receiver myaddr= %llX, sender rmaddr= %llX\n", myaddr, rmaddr.addr);
 	// fflush(stdout);
 	long long ssize = rmaddr.dataSz / 2L;
 	void *src = (void*) rmaddr.addr;
 
-#ifdef STAGE_PROFILE
+// #ifdef STAGE_PROFILE
+// 	if (PAPI_start_counters(events, 2) != PAPI_OK) {
+// 		mpi_errno = MPI_ERR_OTHER;
+// 		errLine = __LINE__;
+// 		goto fn_fail;
+// 	}
+// 	copytime -= MPI_Wtime();
+// #endif
+#ifdef PIP_PROFILE_MISS
+	int events[2] = {PAPI_L3_TCM, PAPI_TLB_DM};
+	long long values[2];
+	int myrank = comm->rank;
+	char buffer[8];
+	char file[64] = "pip-recv_";
+	double synctime = 0.0, copytime = 0.0;
+
+	sprintf(buffer, "%d_", myrank);
+	strcat(file, buffer);
+	sprintf(buffer, "%ld", rmaddr.dataSz);
+	strcat(file, buffer);
+	strcat(file, ".log");
+	FILE *fp = fopen(file, "a");
 	if (PAPI_start_counters(events, 2) != PAPI_OK) {
 		mpi_errno = MPI_ERR_OTHER;
 		errLine = __LINE__;
 		goto fn_fail;
 	}
-	copytime -= MPI_Wtime();
 #endif
+
+#ifndef PIP_MEMCOPY
 	memcpy(buf, src, ssize);
-#ifdef STAGE_PROFILE
-	copytime += MPI_Wtime();
+#endif
+
+#ifdef PIP_PROFILE_MISS
 	if (PAPI_stop_counters(values, 2) != PAPI_OK) {
 		mpi_errno = MPI_ERR_OTHER;
 		errLine = __LINE__;
 		goto fn_fail;
 	}
+	fprintf(fp, "%lld %lld\n", values[0], values[1]);
+	fclose(fp);
 #endif
+// #ifdef STAGE_PROFILE
+// 	copytime += MPI_Wtime();
+// 	if (PAPI_stop_counters(values, 2) != PAPI_OK) {
+// 		mpi_errno = MPI_ERR_OTHER;
+// 		errLine = __LINE__;
+// 		goto fn_fail;
+// 	}
+// #endif
 
 	if (status != MPI_STATUS_IGNORE) {
 		MPIR_STATUS_SET_COUNT(*status, rmaddr.dataSz);
@@ -98,9 +133,10 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_recv(void *buf,
 	}
 
 	int ack;
-#ifdef STAGE_PROFILE
-	synctime -= MPI_Wtime();
-#endif
+// #ifdef STAGE_PROFILE
+// 	synctime -= MPI_Wtime();
+// #endif
+#ifndef PIP_SYNC
 	mpi_errno = MPIDI_POSIX_mpi_send(&ack, 1, MPI_INT, rank, 0, comm, context_offset, NULL, request);
 	if (mpi_errno != MPI_SUCCESS) {
 		errLine = __LINE__;
@@ -120,11 +156,12 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_recv(void *buf,
 			goto fn_fail;
 		}
 	}
-#ifdef STAGE_PROFILE
-	synctime += MPI_Wtime();
-	fprintf(fp, "%.8lf 0.0 %.8lf %lld %lld\n", synctime, copytime, values[0], values[1]);
-	fclose(fp);
 #endif
+// #ifdef STAGE_PROFILE
+// 	synctime += MPI_Wtime();
+// 	fprintf(fp, "%.8lf 0.0 %.8lf %lld %lld\n", synctime, copytime, values[0], values[1]);
+// 	fclose(fp);
+// #endif
 	// if (dataSz <= COOP_COPY_DATA_THRESHOLD) {
 	// 	/* Get data handler in order to attach memory page from source process */
 	// 	// ackHeader header;

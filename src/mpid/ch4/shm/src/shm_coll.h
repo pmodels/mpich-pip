@@ -231,7 +231,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_SHM_mpi_reduce(const void *sendbuf, void *rec
 	MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_SHM_MPI_REDUCE);
 	MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_SHM_MPI_REDUCE);
 	char* SHMEM_MODULE = getenv("SHMEM_MODULE");
-	if (!strcmp(SHMEM_MODULE, "PIP") && !strcmp(COLL_SHMEM_MODULE, "PIP")) {
+	if (!strcmp(SHMEM_MODULE, "PIP") && !strcmp(COLL_SHMEM_MODULE, "PIP") && 0) {
 		ret =
 		    MPIDI_PIP_mpi_reduce(sendbuf, recvbuf, count, datatype, op, root, comm_ptr, errflag,
 		                         algo_parameters_container);

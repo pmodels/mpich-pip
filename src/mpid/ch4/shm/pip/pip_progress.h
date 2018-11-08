@@ -3,7 +3,10 @@
 #include <papi.h>
 
 #define COOP_COPY_DATA_THRESHOLD 4096
-#define STAGE_PROFILE
+
+#ifdef PROFILE_MISS
+extern long long values[2];
+#endif
 
 extern char *COLL_SHMEM_MODULE;
 int MPIR_Wait_impl(MPIR_Request * request_ptr, MPI_Status * status);

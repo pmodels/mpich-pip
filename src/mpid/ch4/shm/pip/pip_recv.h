@@ -45,12 +45,12 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_recv(void *buf,
 		goto fn_fail;
 	}
 
-	MPIR_Request *sendReq;
-	mpi_errno = MPIDI_POSIX_mpi_send(&myaddr, 1, MPI_LONG_LONG, rank, 0, comm, context_offset, NULL, &sendReq);
-	if (mpi_errno != MPI_SUCCESS) {
-		errLine = __LINE__;
-		goto fn_fail;
-	}
+	// MPIR_Request *sendReq;
+	// mpi_errno = MPIDI_POSIX_mpi_send(&myaddr, 1, MPI_LONG_LONG, rank, 0, comm, context_offset, NULL, &sendReq);
+	// if (mpi_errno != MPI_SUCCESS) {
+	// 	errLine = __LINE__;
+	// 	goto fn_fail;
+	// }
 
 	if (*request != NULL) {
 		mpi_errno = MPID_PIP_Wait(*request);
@@ -72,7 +72,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_recv(void *buf,
 // #endif
 	// printf("Receiver myaddr= %llX, sender rmaddr= %llX\n", myaddr, rmaddr.addr);
 	// fflush(stdout);
-	long long ssize = rmaddr.dataSz / 2L;
+	long long ssize = rmaddr.dataSz;
 	void *src = (void*) rmaddr.addr;
 
 // #ifdef STAGE_PROFILE
@@ -143,19 +143,19 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_recv(void *buf,
 		goto fn_fail;
 	}
 
-	mpi_errno = MPIDI_POSIX_mpi_recv(&ack, 1, MPI_INT, rank, tag, comm, context_offset, MPI_STATUS_IGNORE, request);
-	if (mpi_errno != MPI_SUCCESS) {
-		errLine = __LINE__;
-		goto fn_fail;
-	}
+	// mpi_errno = MPIDI_POSIX_mpi_recv(&ack, 1, MPI_INT, rank, tag, comm, context_offset, MPI_STATUS_IGNORE, request);
+	// if (mpi_errno != MPI_SUCCESS) {
+	// 	errLine = __LINE__;
+	// 	goto fn_fail;
+	// }
 
-	if (*request != NULL) {
-		mpi_errno = MPID_PIP_Wait(*request);
-		if (mpi_errno != MPI_SUCCESS) {
-			errLine = __LINE__;
-			goto fn_fail;
-		}
-	}
+	// if (*request != NULL) {
+	// 	mpi_errno = MPID_PIP_Wait(*request);
+	// 	if (mpi_errno != MPI_SUCCESS) {
+	// 		errLine = __LINE__;
+	// 		goto fn_fail;
+	// 	}
+	// }
 #endif
 // #ifdef STAGE_PROFILE
 // 	synctime += MPI_Wtime();

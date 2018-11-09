@@ -49,20 +49,20 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_send(const void *buf, MPI_Aint count,
 		goto fn_fail;
 	}
 
-	mpi_errno = MPIDI_POSIX_mpi_recv(&rmaddr, 1, MPI_LONG_LONG, rank, 0, comm, context_offset, MPI_STATUS_IGNORE, request);
-	if (mpi_errno != MPI_SUCCESS) {
-		errLine = __LINE__;
-		goto fn_fail;
-	}
+	// mpi_errno = MPIDI_POSIX_mpi_recv(&rmaddr, 1, MPI_LONG_LONG, rank, 0, comm, context_offset, MPI_STATUS_IGNORE, request);
+	// if (mpi_errno != MPI_SUCCESS) {
+	// 	errLine = __LINE__;
+	// 	goto fn_fail;
+	// }
 
 
-	if (*request != NULL) {
-		mpi_errno = MPID_PIP_Wait(*request);
-		if (mpi_errno != MPI_SUCCESS) {
-			errLine = __LINE__;
-			goto fn_fail;
-		}
-	}
+	// if (*request != NULL) {
+	// 	mpi_errno = MPID_PIP_Wait(*request);
+	// 	if (mpi_errno != MPI_SUCCESS) {
+	// 		errLine = __LINE__;
+	// 		goto fn_fail;
+	// 	}
+	// }
 #endif
 // #ifdef STAGE_PROFILE
 // 	synctime += MPI_Wtime();
@@ -71,10 +71,10 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_send(const void *buf, MPI_Aint count,
 	// printf("Sender myaddr= %llX, receiver rmaddr= %llX\n", myaddr.addr, rmaddr);
 	// fflush(stdout);
 
-	long long sindex = dataSz / 2L;
-	long long ssize = dataSz - sindex;
-	char *dest = (char*) rmaddr + sindex;
-	char *src = (char*) myaddr.addr + sindex;
+	// long long sindex = dataSz / 2L;
+	// long long ssize = dataSz - sindex;
+	// char *dest = (char*) rmaddr + sindex;
+	// char *src = (char*) myaddr.addr + sindex;
 
 // #ifdef STAGE_PROFILE
 // 	if (PAPI_start_counters(events, 2) != PAPI_OK) {
@@ -84,41 +84,41 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_send(const void *buf, MPI_Aint count,
 // 	}
 // 	copytime -= MPI_Wtime();
 // #endif
-#ifdef PIP_PROFILE_MISS
-	int events[2] = {PAPI_L3_TCM, PAPI_TLB_DM};
-	long long values[2];
-	int myrank = comm->rank;
-	char buffer[8];
-	char file[64] = "pip-send_";
-	double synctime = 0.0, copytime = 0.0;
+// #ifdef PIP_PROFILE_MISS
+// 	int events[2] = {PAPI_L3_TCM, PAPI_TLB_DM};
+// 	long long values[2];
+// 	int myrank = comm->rank;
+// 	char buffer[8];
+// 	char file[64] = "pip-send_";
+// 	double synctime = 0.0, copytime = 0.0;
 
-	sprintf(buffer, "%d_", myrank);
-	strcat(file, buffer);
-	sprintf(buffer, "%ld", dataSz);
-	strcat(file, buffer);
-	strcat(file, ".log");
-	FILE *fp = fopen(file, "a");
-	if (PAPI_start_counters(events, 2) != PAPI_OK) {
-		mpi_errno = MPI_ERR_OTHER;
-		errLine = __LINE__;
-		goto fn_fail;
-	}
-#endif
+// 	sprintf(buffer, "%d_", myrank);
+// 	strcat(file, buffer);
+// 	sprintf(buffer, "%ld", dataSz);
+// 	strcat(file, buffer);
+// 	strcat(file, ".log");
+// 	FILE *fp = fopen(file, "a");
+// 	if (PAPI_start_counters(events, 2) != PAPI_OK) {
+// 		mpi_errno = MPI_ERR_OTHER;
+// 		errLine = __LINE__;
+// 		goto fn_fail;
+// 	}
+// #endif
 
-#ifndef PIP_MEMCOPY
-	memcpy(dest, src, ssize);
+// #ifndef PIP_MEMCOPY
+// 	// memcpy(dest, src, ssize);
 
-#endif
+// #endif
 
-#ifdef PIP_PROFILE_MISS
-	if (PAPI_stop_counters(values, 2) != PAPI_OK) {
-		mpi_errno = MPI_ERR_OTHER;
-		errLine = __LINE__;
-		goto fn_fail;
-	}
-	fprintf(fp, "%lld %lld\n", values[0], values[1]);
-	fclose(fp);
-#endif
+// #ifdef PIP_PROFILE_MISS
+// 	if (PAPI_stop_counters(values, 2) != PAPI_OK) {
+// 		mpi_errno = MPI_ERR_OTHER;
+// 		errLine = __LINE__;
+// 		goto fn_fail;
+// 	}
+// 	fprintf(fp, "%lld %lld\n", values[0], values[1]);
+// 	fclose(fp);
+// #endif
 // #ifdef STAGE_PROFILE
 // 	copytime += MPI_Wtime();
 // 	if (PAPI_stop_counters(values, 2) != PAPI_OK) {
@@ -135,11 +135,11 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_send(const void *buf, MPI_Aint count,
 // 	synctime -= MPI_Wtime();
 // #endif
 #ifndef PIP_SYNC
-	mpi_errno = MPIDI_POSIX_mpi_send(&ack, 1, MPI_INT, rank, tag, comm, context_offset, NULL, request);
-	if (mpi_errno != MPI_SUCCESS) {
-		errLine = __LINE__;
-		goto fn_fail;
-	}
+	// mpi_errno = MPIDI_POSIX_mpi_send(&ack, 1, MPI_INT, rank, tag, comm, context_offset, NULL, request);
+	// if (mpi_errno != MPI_SUCCESS) {
+	// 	errLine = __LINE__;
+	// 	goto fn_fail;
+	// }
 
 	mpi_errno = MPIDI_POSIX_mpi_recv(&ack, 1, MPI_INT, rank, 0, comm, context_offset, MPI_STATUS_IGNORE, request);
 	if (mpi_errno != MPI_SUCCESS) {

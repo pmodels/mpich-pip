@@ -71,10 +71,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_send(const void *buf, MPI_Aint count,
 	// printf("Sender myaddr= %llX, receiver rmaddr= %llX\n", myaddr.addr, rmaddr);
 	// fflush(stdout);
 
-	long long sindex = dataSz / 2L;
-	long long ssize = dataSz - sindex;
-	char *dest = (char*) rmaddr + sindex;
-	char *src = (char*) myaddr.addr + sindex;
+
 
 // #ifdef STAGE_PROFILE
 // 	if (PAPI_start_counters(events, 2) != PAPI_OK) {
@@ -106,6 +103,15 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_send(const void *buf, MPI_Aint count,
 #endif
 
 #ifndef PIP_MEMCOPY
+	long long sindex = dataSz / 2L;
+	long long ssize = dataSz - sindex;
+	char *dest = (char*) rmaddr + sindex;
+	char *src = (char*) myaddr.addr + sindex;
+#ifdef PIP_SYNC
+	static char buffer[1024];
+	ssize = 512;
+	dest = buffer;
+#endif
 	memcpy(dest, src, ssize);
 
 #endif
@@ -134,6 +140,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_send(const void *buf, MPI_Aint count,
 // #ifdef STAGE_PROFILE
 // 	synctime -= MPI_Wtime();
 // #endif
+
 #ifndef PIP_SYNC
 	mpi_errno = MPIDI_POSIX_mpi_send(&ack, 1, MPI_INT, rank, tag, comm, context_offset, NULL, request);
 	if (mpi_errno != MPI_SUCCESS) {

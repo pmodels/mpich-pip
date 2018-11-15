@@ -36,6 +36,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_send(const void *buf, MPI_Aint count,
 #endif
 
 
+#ifndef PIP_SYNC
 	/* Wait */
 	int ack;
 
@@ -52,7 +53,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_send(const void *buf, MPI_Aint count,
 			goto fn_fail;
 		}
 	}
-
+#endif
 	goto fn_exit;
 fn_fail:
 	printf("[%s-%d] Error with mpi_errno (%d)\n", __FUNCTION__, errLine, mpi_errno);

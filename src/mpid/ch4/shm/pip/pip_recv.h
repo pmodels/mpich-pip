@@ -44,8 +44,6 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_recv(void *buf,
 	}
 #endif
 
-	long long ssize = rmaddr.dataSz;
-	void *src = (void*) rmaddr.addr;
 
 #ifdef PIP_PROFILE_MISS
 #ifdef TLB_MISS
@@ -64,6 +62,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_recv(void *buf,
 #endif
 
 #ifndef PIP_MEMCOPY
+	long long ssize = rmaddr.dataSz;
+	void *src = (void*) rmaddr.addr;
 #ifdef PIP_SYNC
 	static char buffer[1024];
 	ssize = 1024;
@@ -83,20 +83,22 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_recv(void *buf,
 #endif
 
 
+
 	if (status != MPI_STATUS_IGNORE) {
 		MPIR_STATUS_SET_COUNT(*status, rmaddr.dataSz);
 		status->MPI_SOURCE = rank;
 		status->MPI_TAG = tag;
 	}
 
-	int ack;
 
+#ifndef PIP_SYNC
+	int ack;
 	mpi_errno = MPIDI_POSIX_mpi_send(&ack, 1, MPI_INT, rank, 0, comm, context_offset, NULL, request);
 	if (mpi_errno != MPI_SUCCESS) {
 		errLine = __LINE__;
 		goto fn_fail;
 	}
-
+#endif
 
 	goto fn_exit;
 

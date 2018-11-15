@@ -84,24 +84,22 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_recv(void *buf,
 // 	copytime -= MPI_Wtime();
 // #endif
 #ifdef PIP_PROFILE_MISS
-	int events[2] = {PAPI_L3_TCM, PAPI_TLB_DM};
+#ifdef TLB_MISS
+	int events[2] = {PAPI_PRF_DM, PAPI_TLB_DM};
+#else
+	int events[2] = {PAPI_PRF_DM, PAPI_L3_TCM};
+#endif
 	long long values[2];
-	int myrank = comm->rank;
-	char buffer[8];
-	char file[64] = "pip-recv_";
-	double synctime = 0.0, copytime = 0.0;
-
-	sprintf(buffer, "%d_", myrank);
-	strcat(file, buffer);
-	sprintf(buffer, "%ld", rmaddr.dataSz);
-	strcat(file, buffer);
-	strcat(file, ".log");
-	FILE *fp = fopen(file, "a");
-	if (PAPI_start_counters(events, 2) != PAPI_OK) {
-		mpi_errno = MPI_ERR_OTHER;
-		errLine = __LINE__;
-		goto fn_fail;
-	}
+	// int myrank = ;
+	// char buffer[8];
+	// char file[64] = "pip-recv_";
+	// double synctime = 0.0, copytime = 0.0;
+	FILE *fp;
+	mpi_errno = papiStart(events, "pip-recv_", comm->rank, rmaddr.dataSz, &fp);
+	// if (mpi_errno != MPI_SUCCESS) {
+	// 	errLine = __LINE__;
+	// 	goto fn_fail;
+	// }
 #endif
 
 #ifndef PIP_MEMCOPY

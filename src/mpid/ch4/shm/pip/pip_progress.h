@@ -1,12 +1,11 @@
 #ifndef PIP_PROGRESS_INCLUDED
 #define PIP_PROGRESS_INCLUDED
+#ifdef PIP_PROFILE_MISS
 #include <papi.h>
+#endif
 
 #define COOP_COPY_DATA_THRESHOLD 4096
 
-#ifdef PROFILE_MISS
-extern long long values[2];
-#endif
 
 extern char *COLL_SHMEM_MODULE;
 int MPIR_Wait_impl(MPIR_Request * request_ptr, MPI_Status * status);
@@ -43,6 +42,34 @@ fn_fail:
 fn_exit:
 	return mpi_errno;
 }
+
+#ifdef PIP_PROFILE_MISS
+#undef FCNAME
+#define FCNAME MPL_QUOTE(papiStart)
+MPL_STATIC_INLINE_PREFIX int papiStart(int events[], char *prefix, int myrank, int dataSz, FILE **fp) {
+	char buffer[8];
+	char file[64];
+	int errLine, mpi_errno = MPI_SUCCESS;
+
+	strcpy(file, prefix);
+	sprintf(buffer, "%d_", myrank);
+	strcat(file, buffer);
+	sprintf(buffer, "%d", dataSz);
+	strcat(file, buffer);
+	strcat(file, ".log");
+	*fp = fopen(file, "a");
+	if (PAPI_start_counters(events, 2) != PAPI_OK) {
+		mpi_errno = MPI_ERR_OTHER;
+		errLine = __LINE__;
+		goto fn_fail;
+	}
+	goto fn_exit;
+fn_fail:
+	printf("[%s-%d] Error with mpi_errno (%d)\n", __FUNCTION__, errLine, mpi_errno);
+fn_exit:
+	return mpi_errno;
+}
+#endif
 
 // MPL_STATIC_INLINE_PREFIX int initNativeEventSet() {
 // 	int retval;

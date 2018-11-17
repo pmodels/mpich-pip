@@ -83,8 +83,12 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_recv(void *buf,
 // 	copytime -= MPI_Wtime();
 // #endif
 #ifdef PIP_PROFILE_MISS
-	int events[2] = {PAPI_L3_TCM, PAPI_TLB_DM};
-	long long values[2];
+#ifdef TLB_MISS
+	int events[2] = {PAPI_PRF_DM, PAPI_TLB_DM};
+#else
+	int events[2] = {PAPI_PRF_DM, PAPI_L3_TCM};
+#endif
+	long long values[2] = {0, 0};
 	int myrank = comm->rank;
 	char buffer[8];
 	char file[64] = "pip-recv_";

@@ -35,6 +35,21 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_send(const void *buf, MPI_Aint count,
 	}
 #endif
 
+#ifdef PIP_PROFILE_MISS
+	int myrank = comm->rank;
+	char buffer[8];
+	char file[64] = "pip-send_";
+
+	sprintf(buffer, "%d_", myrank);
+	strcat(file, buffer);
+	sprintf(buffer, "%d", dataSz);
+	strcat(file, buffer);
+	strcat(file, ".log");
+	FILE *fp = fopen(file, "a");
+	fprintf(fp, "0 0\n");
+	fclose(fp);
+#endif
+
 
 #ifndef PIP_SYNC
 	/* Wait */

@@ -57,7 +57,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_recv(void *buf,
 	// char file[64] = "pip-recv_";
 	// double synctime = 0.0, copytime = 0.0;
 	FILE *fp;
-	mpi_errno = papiStart(events, "pip-recv_", comm->rank, rmaddr.dataSz, &fp);
+	mpi_errno = papiStart(events, "PIP-recv_", comm->rank, rmaddr.dataSz, &fp);
 
 #endif
 

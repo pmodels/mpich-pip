@@ -38,7 +38,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_send(const void *buf, MPI_Aint count,
 #ifdef PIP_PROFILE_MISS
 	int myrank = comm->rank;
 	char buffer[8];
-	char file[64] = "pip-send_";
+	char file[64] = "PIP-send_";
 
 	sprintf(buffer, "%d_", myrank);
 	strcat(file, buffer);

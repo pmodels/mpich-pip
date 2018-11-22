@@ -90,7 +90,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_send(const void *buf, MPI_Aint count,
 	long long values[2] = {0, 0};
 	int myrank = comm->rank;
 	char buffer[8];
-	char file[64] = "pip-send_";
+	char file[64] = "PIP-send_";
 	double synctime = 0.0, copytime = 0.0;
 
 	sprintf(buffer, "%d_", myrank);

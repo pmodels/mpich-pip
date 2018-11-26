@@ -26,22 +26,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_send(const void *buf, MPI_Aint count,
 
 	myaddr.addr = (long long) buf;
 	myaddr.dataSz = (long long) dataSz;
-// #ifdef STAGE_PROFILE
-// 	int events[2] = {PAPI_L3_TCM, PAPI_TLB_DM};
-// 	long long values[2];
-// 	int myrank = comm->rank;
-// 	char buffer[8];
-// 	char file[64] = "pip-send_";
-// 	double synctime = 0.0, copytime = 0.0;
 
-// 	sprintf(buffer, "%d_", myrank);
-// 	strcat(file, buffer);
-// 	sprintf(buffer, "%ld", dataSz);
-// 	strcat(file, buffer);
-// 	strcat(file, ".log");
-// 	FILE *fp = fopen(file, "a");
-// 	synctime -= MPI_Wtime();
-// #endif
 #ifndef PIP_SYNC
 	mpi_errno = MPIDI_POSIX_mpi_send(&myaddr, 2, MPI_LONG_LONG, rank, tag, comm, context_offset, NULL, request);
 	if (mpi_errno != MPI_SUCCESS) {
@@ -64,47 +49,60 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_send(const void *buf, MPI_Aint count,
 		}
 	}
 #endif
-// #ifdef STAGE_PROFILE
-// 	synctime += MPI_Wtime();
-// #endif
-
-	// printf("Sender myaddr= %llX, receiver rmaddr= %llX\n", myaddr.addr, rmaddr);
-	// fflush(stdout);
 
 
-
-// #ifdef STAGE_PROFILE
-// 	if (PAPI_start_counters(events, 2) != PAPI_OK) {
-// 		mpi_errno = MPI_ERR_OTHER;
-// 		errLine = __LINE__;
-// 		goto fn_fail;
-// 	}
-// 	copytime -= MPI_Wtime();
-// #endif
 #ifdef PIP_PROFILE_MISS
+	long long sumv[2] = {0, 0};
+#ifdef PIP_COMBINE_MISS
+	int EventSet = PAPI_NULL;
+	int *events = NULL;
+	long long values[4] = {0, 0, 0, 0};
+	int retval;
+	if ((retval = PAPI_create_eventset(&EventSet)) != PAPI_OK) {
+		fprintf(stderr, "PAPI_create_eventset error %d\n", retval);
+		exit(1);
+	}
+	retval = PAPI_add_named_event( EventSet, "PAGE_WALKER_LOADS:DTLB_L1" );
+	if ( retval != PAPI_OK ) {
+		printf("Error : %s\n", PAPI_strerror(retval));
+		return -1;
+	}
+
+	retval = PAPI_add_named_event( EventSet, "PAGE_WALKER_LOADS:DTLB_L2" );
+	if ( retval != PAPI_OK ) {
+		printf("Error : %s\n", PAPI_strerror(retval));
+		return -1;
+	}
+
+	retval = PAPI_add_named_event( EventSet, "PAGE_WALKER_LOADS:DTLB_MEMORY" );
+	if ( retval != PAPI_OK ) {
+		printf("Error : %s\n", PAPI_strerror(retval));
+		return -1;
+	}
+
+	retval = PAPI_add_named_event( EventSet, "OFFCORE_RESPONSE_0:L3_MISS" );
+	if ( retval != PAPI_OK ) {
+		printf("Error : %s\n", PAPI_strerror(retval));
+		return -1;
+	}
+#else
+	long long values[2];
 #ifdef TLB_MISS
 	int events[2] = {PAPI_PRF_DM, PAPI_TLB_DM};
 #else
 	int events[2] = {PAPI_PRF_DM, PAPI_L3_TCM};
 #endif
-	long long values[2] = {0, 0};
-	int myrank = comm->rank;
-	char buffer[8];
-	char file[64] = "PIP-send_";
-	double synctime = 0.0, copytime = 0.0;
-
-	sprintf(buffer, "%d_", myrank);
-	strcat(file, buffer);
-	sprintf(buffer, "%ld", dataSz);
-	strcat(file, buffer);
-	strcat(file, ".log");
-	FILE *fp = fopen(file, "a");
-	if (PAPI_start_counters(events, 2) != PAPI_OK) {
-		mpi_errno = MPI_ERR_OTHER;
-		errLine = __LINE__;
-		goto fn_fail;
-	}
 #endif
+
+	// int myrank = ;
+	// char buffer[8];
+	// char file[64] = "pip-recv_";
+	// double synctime = 0.0, copytime = 0.0;
+	FILE *fp;
+	mpi_errno = papiStart(events, "PIP-send_", comm->rank, dataSz, &fp, &EventSet);
+
+#endif
+
 
 #ifndef PIP_MEMCOPY
 	long long sindex = dataSz / 2L;
@@ -121,22 +119,28 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_send(const void *buf, MPI_Aint count,
 #endif
 
 #ifdef PIP_PROFILE_MISS
+#ifdef PIP_COMBINE_MISS
+	if ((retval = PAPI_stop(EventSet, values)) != PAPI_OK) {
+		printf("Error : %s\n", PAPI_strerror(retval));
+		errLine = __LINE__;
+		goto fn_fail;
+	}
+	sumv[0] = values[0] + values[1] + values[2];
+	sumv[1] = values[3];
+	PAPI_cleanup_eventset(EventSet);
+	PAPI_destroy_eventset(&EventSet);
+#else
 	if (PAPI_stop_counters(values, 2) != PAPI_OK) {
 		mpi_errno = MPI_ERR_OTHER;
 		errLine = __LINE__;
 		goto fn_fail;
 	}
-	fprintf(fp, "%lld %lld\n", values[0], values[1]);
+	sumv[0] = values[0];
+	sumv[1] = values[1];
+#endif
+	fprintf(fp, "%lld %lld\n", sumv[0], sumv[1]);
 	fclose(fp);
 #endif
-// #ifdef STAGE_PROFILE
-// 	copytime += MPI_Wtime();
-// 	if (PAPI_stop_counters(values, 2) != PAPI_OK) {
-// 		mpi_errno = MPI_ERR_OTHER;
-// 		errLine = __LINE__;
-// 		goto fn_fail;
-// 	}
-// #endif
 
 	/* Wait */
 	int ack;

@@ -46,7 +46,7 @@ fn_exit:
 #ifdef PIP_PROFILE_MISS
 #undef FCNAME
 #define FCNAME MPL_QUOTE(papiStart)
-MPL_STATIC_INLINE_PREFIX int papiStart(int events[], char *prefix, int myrank, int dataSz, FILE **fp) {
+MPL_STATIC_INLINE_PREFIX int papiStart(int *events, char *prefix, int myrank, int dataSz, FILE **fp, int *eventset) {
 	char buffer[8];
 	char file[64];
 	int errLine, mpi_errno = MPI_SUCCESS;
@@ -58,11 +58,19 @@ MPL_STATIC_INLINE_PREFIX int papiStart(int events[], char *prefix, int myrank, i
 	strcat(file, buffer);
 	strcat(file, ".log");
 	*fp = fopen(file, "a");
-	if (PAPI_start_counters(events, 2) != PAPI_OK) {
-		mpi_errno = MPI_ERR_OTHER;
-		errLine = __LINE__;
-		goto fn_fail;
+	if (events != NULL) {
+		if (PAPI_start_counters(events, 2) != PAPI_OK) {
+			mpi_errno = MPI_ERR_OTHER;
+			errLine = __LINE__;
+			goto fn_fail;
+		}
+	} else {
+		if (PAPI_start(*eventset) != PAPI_OK) {
+			printf("Error PAPI_start\n");
+			return -1;
+		}
 	}
+
 	goto fn_exit;
 fn_fail:
 	printf("[%s-%d] Error with mpi_errno (%d)\n", __FUNCTION__, errLine, mpi_errno);

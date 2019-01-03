@@ -1,6 +1,8 @@
 #ifndef PIP_PROGRESS_INCLUDED
 #define PIP_PROGRESS_INCLUDED
+#ifdef PIP_PROFILE_MISS
 #include <papi.h>
+#endif
 
 #define COOP_COPY_DATA_THRESHOLD 4096
 

@@ -11,9 +11,8 @@
 #ifdef HAVE_PIP
 #include <pip.h>
 #endif
-#define STAGE_PROFILE
 
-#ifdef STAGE_PROFILE
+#ifdef PIP_PROFILE_MISS
 #include <papi.h>
 #endif
 /*

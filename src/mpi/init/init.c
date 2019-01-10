@@ -15,6 +15,8 @@
 #ifdef PIP_PROFILE_MISS
 #include <papi.h>
 #endif
+
+void socket_comm_init();
 /*
 === BEGIN_MPI_T_CVAR_INFO_BLOCK ===
 
@@ -210,7 +212,7 @@ int MPI_Init(int *argc, char ***argv) {
 		}
 #endif
 	}
-
+	socket_comm_init();
 	/* ... end of body of routine ... */
 	MPIR_FUNC_TERSE_INIT_EXIT(MPID_STATE_MPI_INIT);
 	return mpi_errno;

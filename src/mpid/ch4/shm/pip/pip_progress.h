@@ -39,6 +39,7 @@ MPL_STATIC_INLINE_PREFIX int MPID_PIP_Wait(MPIR_Request *request_ptr) {
 		errLine = __LINE__;
 		goto fn_fail;
 	}
+	request_ptr = NULL;
 	goto fn_exit;
 fn_fail:
 	printf("[%s-%d] Error with mpi_errno (%d)\n", __FUNCTION__, errLine, mpi_errno);

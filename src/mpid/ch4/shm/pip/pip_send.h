@@ -15,7 +15,8 @@
 MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_send(const void *buf, MPI_Aint count,
         MPI_Datatype datatype, int rank, int tag,
         MPIR_Comm * comm, int context_offset,
-        MPIDI_av_entry_t * addr, MPIR_Request ** request) {
+        MPIDI_av_entry_t * addr, MPIR_Request ** request)
+{
 	int mpi_errno = MPI_SUCCESS;
 	size_t dataSz;
 	int errLine;
@@ -34,20 +35,24 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_send(const void *buf, MPI_Aint count,
 		goto fn_fail;
 	}
 
+	mpi_errno = MPID_PIP_Wait(*request);
+	if (mpi_errno != MPI_SUCCESS) {
+		errLine = __LINE__;
+		goto fn_fail;
+	}
+	
 	mpi_errno = MPIDI_POSIX_mpi_recv(&rmaddr, 1, MPI_LONG_LONG, rank, 0, comm, context_offset, MPI_STATUS_IGNORE, request);
 	if (mpi_errno != MPI_SUCCESS) {
 		errLine = __LINE__;
 		goto fn_fail;
 	}
 
-
-	if (*request != NULL) {
-		mpi_errno = MPID_PIP_Wait(*request);
-		if (mpi_errno != MPI_SUCCESS) {
-			errLine = __LINE__;
-			goto fn_fail;
-		}
+	mpi_errno = MPID_PIP_Wait(*request);
+	if (mpi_errno != MPI_SUCCESS) {
+		errLine = __LINE__;
+		goto fn_fail;
 	}
+
 #endif
 
 
@@ -156,18 +161,22 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_send(const void *buf, MPI_Aint count,
 		goto fn_fail;
 	}
 
+	mpi_errno = MPID_PIP_Wait(*request);
+	if (mpi_errno != MPI_SUCCESS) {
+		errLine = __LINE__;
+		goto fn_fail;
+	}
+
 	mpi_errno = MPIDI_POSIX_mpi_recv(&ack, 1, MPI_INT, rank, 0, comm, context_offset, MPI_STATUS_IGNORE, request);
 	if (mpi_errno != MPI_SUCCESS) {
 		errLine = __LINE__;
 		goto fn_fail;
 	}
 
-	if (*request != NULL) {
-		mpi_errno = MPID_PIP_Wait(*request);
-		if (mpi_errno != MPI_SUCCESS) {
-			errLine = __LINE__;
-			goto fn_fail;
-		}
+	mpi_errno = MPID_PIP_Wait(*request);
+	if (mpi_errno != MPI_SUCCESS) {
+		errLine = __LINE__;
+		goto fn_fail;
 	}
 #endif
 // #ifdef STAGE_PROFILE

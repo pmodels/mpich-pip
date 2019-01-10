@@ -57,7 +57,7 @@ typedef struct MPIR_Process_t {
     netloc_topology_t netloc_topology;
     MPIR_Netloc_network_attributes network_attr;
 #endif
-
+    
 #ifdef USE_PMIX_API
     pmix_proc_t pmix_proc;
     pmix_proc_t pmix_wcproc;
@@ -86,6 +86,7 @@ typedef struct MPIR_Process_t {
      * to specify the kind (comm,file,win) */
     void (*cxx_call_errfn) (int, int *, int *, void (*)(void));
 #endif                          /* HAVE_CXX_BINDING */
+    int socket_id;
 } MPIR_Process_t;
 extern MPIR_Process_t MPIR_Process;
 

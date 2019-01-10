@@ -94,6 +94,8 @@ int MPII_Comm_init(MPIR_Comm * comm_p)
     comm_p->hierarchy_kind = MPIR_COMM_HIERARCHY_KIND__FLAT;
     comm_p->node_comm = NULL;
     comm_p->node_roots_comm = NULL;
+    comm_p->socket_comm = NULL;
+    comm_p->socket_roots_comm = NULL;
     comm_p->intranode_table = NULL;
     comm_p->internode_table = NULL;
 

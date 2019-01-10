@@ -12,7 +12,9 @@
  * excludes the implied warranties of merchantability, fitness for a
  * particular purpose and non-infringement.
  */
-
+#define _GNU_SOURCE
+#include <sched.h>
+#include <numa.h>
 #include "mpiimpl.h"
 #include "mpir_info.h"
 #include "datatype.h"
@@ -23,10 +25,15 @@
 #ifdef HAVE_USLEEP
 #include <unistd.h>
 #endif
-
+#include <pip.h>
 #ifdef PIP_PROFILE_MISS
 #include <papi.h>
 #endif
+
+// long long pip_array[36];
+long long *data_addr_array;
+long long *data_addr_array1;
+pip_barrier_t *barp;
 /*
 === BEGIN_MPI_T_CVAR_INFO_BLOCK ===
 
@@ -92,7 +99,7 @@ __attribute__ ((weak, alias("PMPI_Init_thread")));
 #ifndef MPICH_MPI_FROM_PMPI
 #undef MPI_Init_thread
 #define MPI_Init_thread PMPI_Init_thread
-
+void socket_comm_init();
 /* Any internal routines can go here.  Make them static if possible */
 
 /* Global variables can be initialized here */
@@ -150,7 +157,8 @@ void mpirinitf_(void);
  * bringing up an error dialog box.
  */
 /* style: allow:fprintf:1 sig:0 */
-static int assert_hook(int reportType, char *message, int *returnValue) {
+static int assert_hook(int reportType, char *message, int *returnValue)
+{
 	MPL_UNREFERENCED_ARG(reportType);
 	fprintf(stderr, "%s", message);
 	if (returnValue != NULL)
@@ -160,7 +168,8 @@ static int assert_hook(int reportType, char *message, int *returnValue) {
 }
 
 /* MPICH dll entry point */
-BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved) {
+BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved)
+{
 	BOOL result = TRUE;
 	hinstDLL;
 	lpReserved;
@@ -204,7 +213,8 @@ MPID_Thread_mutex_t MPIR_THREAD_POBJ_PMI_MUTEX;
 #define FUNCNAME thread_cs_init
 #undef FCNAME
 #define FCNAME MPL_QUOTE(FUNCNAME)
-static int thread_cs_init(void) {
+static int thread_cs_init(void)
+{
 	int err;
 
 #if MPICH_THREAD_GRANULARITY == MPICH_THREAD_GRANULARITY__GLOBAL
@@ -249,7 +259,8 @@ static int thread_cs_init(void) {
 #define FUNCNAME MPIR_Thread_CS_Finalize
 #undef FCNAME
 #define FCNAME MPL_QUOTE(FUNCNAME)
-int MPIR_Thread_CS_Finalize(void) {
+int MPIR_Thread_CS_Finalize(void)
+{
 	int err;
 
 	MPL_DBG_MSG(MPIR_DBG_INIT, TYPICAL, "Freeing global mutex and private storage");
@@ -329,13 +340,20 @@ MPL_dbg_class MPIR_DBG_STRING;
 #define FUNCNAME MPIR_Init_thread
 #undef FCNAME
 #define FCNAME MPL_QUOTE(FUNCNAME)
-int MPIR_Init_thread(int *argc, char ***argv, int required, int *provided) {
+int MPIR_Init_thread(int *argc, char ***argv, int required, int *provided)
+{
 	int mpi_errno = MPI_SUCCESS;
 	int has_args;
 	int has_env;
 	int thread_provided = 0;
 	int exit_init_cs_on_failure = 0;
 	MPIR_Info *info_ptr;
+
+	/* Get socket information */
+	int cpu = sched_getcpu();
+	int node = numa_node_of_cpu(cpu);
+	MPIR_Process.socket_id = node;
+
 #ifdef PIP_PROFILE_MISS
 	int retval;
 	if ((retval = PAPI_library_init(PAPI_VER_CURRENT)) != PAPI_VER_CURRENT ) {
@@ -716,7 +734,8 @@ Notes for Fortran:
 
 .seealso: MPI_Init, MPI_Finalize
 @*/
-int MPI_Init_thread(int *argc, char ***argv, int required, int *provided) {
+int MPI_Init_thread(int *argc, char ***argv, int required, int *provided)
+{
 	int mpi_errno = MPI_SUCCESS;
 	int rc ATTRIBUTE((unused)), reqd = required;
 	MPIR_FUNC_TERSE_INIT_STATE_DECL(MPID_STATE_MPI_INIT_THREAD);
@@ -783,7 +802,7 @@ int MPI_Init_thread(int *argc, char ***argv, int required, int *provided) {
 	}
 
 	/* ... end of body of routine ... */
-
+	socket_comm_init();
 	MPIR_FUNC_TERSE_INIT_EXIT(MPID_STATE_MPI_INIT_THREAD);
 	return mpi_errno;
 
@@ -797,6 +816,7 @@ fn_fail:
 		                         required, provided);
 	}
 #endif
+
 	mpi_errno = MPIR_Err_return_comm(0, FCNAME, mpi_errno);
 	MPIR_FUNC_TERSE_INIT_EXIT(MPID_STATE_MPI_INIT_THREAD);
 
@@ -804,4 +824,62 @@ fn_fail:
 
 	return mpi_errno;
 	/* --END ERROR HANDLING-- */
+}
+
+
+/* I haven't consider if users will split MPI_COMM_WORLD out of MPI library. Need to refine this. */
+void socket_comm_init()
+{
+	MPIR_Comm *comm_ptr = MPIR_Process.comm_world->node_comm;
+	MPIR_Comm *intra_socket_comm = NULL;
+	MPIR_Comm *inter_socket_comm = NULL;
+
+	int myid, npips;
+	// if (comm_ptr->rank == 0) {
+	// 	printf("start pip_init\n");
+	// 	fflush(stdout);
+	// }
+	pip_init(&myid, &npips, NULL, 0);
+	// extern long long *data_addr_array;
+	// extern long long pip_addr_array[36];
+	// printf("Start pip_get_addr rank %d, pip_array %p\n", comm_ptr->rank, pip_array);
+	// fflush(stdout);
+	// sleep(30);
+	// pip_get_addr(0, "pip_barp", &barp) ;
+	// if(myid == 0){
+	// 	pip_barrier_init(barp, comm_ptr->local_size);
+	// }
+	pip_get_addr(0, "pip_addr_array", &data_addr_array);
+	
+	// if(myid == 0)
+	// pip_get_addr(0, "pip_addr_array1", &data_addr_array1);
+
+	// printf("Complete pip_get_addr rank %d, %p\n", comm_ptr->rank, data_array);
+	// if(comm_ptr->rank == 0){
+	// printf("complete pip_init, myid %d, rank %d\n", myid, comm_ptr->rank);
+	// fflush(stdout);
+	// }
+	comm_ptr->pip_id = myid;
+
+	MPIR_Comm_split_impl(MPIR_Process.comm_world, MPIR_Process.socket_id, 0, &intra_socket_comm);
+	comm_ptr->socket_comm = intra_socket_comm;
+
+	// if(MPIR_Process.socket_id == 0)
+
+	if (comm_ptr->local_size != intra_socket_comm->local_size) {
+
+		if (intra_socket_comm->rank == 0) {
+			// printf("Intersplit rank %d, newrank %d\n", comm_ptr->rank, intra_socket_comm->rank);
+			// fflush(stdout);
+			MPIR_Comm_split_impl(comm_ptr, 0, 0, &inter_socket_comm);
+			comm_ptr->socket_roots_comm = inter_socket_comm;
+		} else {
+			MPIR_Comm_split_impl(comm_ptr, 1, 0, &inter_socket_comm);
+		}
+	}
+
+
+
+
+	return;
 }

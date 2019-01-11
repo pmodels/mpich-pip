@@ -6,7 +6,7 @@ extern pip_barrier_t *barp;
 // extern long long pip_array[36];
 // long long *data_addr_array[36];
 
-
+void MPIR_create_shared_addr(MPIR_Comm *comm);
 #undef FCNAME
 #define FCNAME MPL_QUOTE(MPIDI_PIP_mpi_reduce)
 static inline int MPIDI_PIP_mpi_reduce(const void *sendbuf, void *recvbuf, int count,
@@ -28,14 +28,18 @@ static inline int MPIDI_PIP_mpi_reduce(const void *sendbuf, void *recvbuf, int c
 	void *dest = NULL;
 	void *src = NULL;
 	size_t dataSz, typesize;
+
 	if (count == 0)
 		goto fn_exit;
 
+	/* Should not happen in application call */
+	if(comm->shared_addr == NULL)
+		MPIR_create_shared_addr(comm);
 	// pip_barrier_t barp;
 	// if(myrank == 0)
 	// 	pip_barrier_init(barp, psize);
 
-	typesize =  MPIR_Datatype_get_basic_size(datatype);
+	typesize = MPIR_Datatype_get_basic_size(datatype);
 	dataSz = typesize * count;
 
 
@@ -53,6 +57,10 @@ static inline int MPIDI_PIP_mpi_reduce(const void *sendbuf, void *recvbuf, int c
 		data_addr = (long long)sendbuf;
 	}
 
+	
+	size_t sindex = (size_t) (myrank * count / psize);
+	size_t ssize = sindex * typesize;
+	size_t len = (size_t) ((myrank + 1) * count / psize) - sindex;
 	// COLL_SHMEM_MODULE = POSIX_MODULE;
 	// mpi_errno = MPIDI_POSIX_mpi_allgather(&data_addr, 1, MPI_LONG_LONG, data_addr_array, 1, MPI_LONG_LONG, comm, errflag, NULL);
 	// if (mpi_errno != MPI_SUCCESS) {
@@ -65,24 +73,25 @@ static inline int MPIDI_PIP_mpi_reduce(const void *sendbuf, void *recvbuf, int c
 	// sleep(30);
 	// pip_get_addr(1, "pip_addr_array", &data_addr_array);
 
-	// printf("Reduce: Complete pip_get_addr rank %d, %p\n", myrank, data_array);
+	// printf("Reduce: Begin assign addr rank %d, shared_addr %p, comm %p\n", myrank, comm->shared_addr, comm);
+	// fflush(stdout);
 	// long long *data_addr_array = data_array;
-	data_addr_array[myrank] = data_addr;
+	comm->shared_addr[myrank] = data_addr;
+	// printf("Reduce: complete assign addr rank %d, comm %p\n", myrank, comm);
+	// fflush(stdout);
 	// printf("myrank %d, before barrier\n", myrank);
 	// fflush(stdout);
 	// pip_barrier_wait(barp);
 	// printf("myrank %d, after barrier\n", myrank);
 	// fflush(stdout);
 	// COLL_SHMEM_MODULE = POSIX_MODULE;
+
 	MPIDI_POSIX_mpi_barrier(comm, errflag, NULL);
 	// COLL_SHMEM_MODULE = PIP_MODULE;
-
-	dest = (void*) data_addr_array[root];
-
-	size_t sindex = (size_t) (myrank * count / psize);
-	size_t ssize = sindex * typesize;
-	size_t len = (size_t) ((myrank + 1) * count / psize) - sindex;
-	void *outdest = (void*) ((char*) dest + ssize);
+	void *outdest = (void*) ((char*) comm->shared_addr[root] + ssize);
+	
+	// printf("Reduce: ready copy rank %d\n", myrank);
+	// fflush(stdout);
 #ifndef NO_PIP_REDUCE
 	/* Attach src data from each other within a for loop */
 	for (int i = 0; i < psize; ++i) {
@@ -111,7 +120,7 @@ static inline int MPIDI_PIP_mpi_reduce(const void *sendbuf, void *recvbuf, int c
 			The cache optimization can be applied in the future
 		*/
 
-		src = (void*) data_addr_array[i];
+		src = (void*) comm->shared_addr[i];
 		void *insrc = (void*) ((char*) src + ssize);
 		MPIR_Reduce_local(insrc, outdest, len, datatype, op);
 

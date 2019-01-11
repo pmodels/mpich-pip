@@ -253,7 +253,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_SHM_mpi_reduce(const void *sendbuf, void *rec
 	// extern long long *data_addr_array1;
 	void* rank0_tmp_buffer = NULL;
 
-	if (0 && comm_ptr->socket_comm != NULL) {
+	if (comm_ptr->socket_comm != NULL) {
 		if (root != 0) {
 			if (comm_ptr->socket_comm->rank == 0)
 				rank0_tmp_buffer = MPL_malloc(MPIR_Datatype_get_basic_size(datatype) * count, MPL_MEM_OTHER);
@@ -263,12 +263,15 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_SHM_mpi_reduce(const void *sendbuf, void *rec
 			else
 				rank0_tmp_buffer = recvbuf;
 		}
-
+		// printf("First stage pip reduce rank %d\n", comm_ptr->socket_comm->rank);
+		// fflush(stdout);
 		ret = MPIDI_PIP_mpi_reduce(sendbuf, rank0_tmp_buffer, count, datatype, op, 0, comm_ptr->socket_comm, errflag, algo_parameters_container);
 		if (ret != MPI_SUCCESS)
 			goto fn_exit;
 
 		if (comm_ptr->socket_roots_comm != NULL) {
+			// printf("Second stage pip reduce rank %d\n", comm_ptr->socket_roots_comm->rank);
+			// fflush(stdout);
 			// printf("Inter socket comm, my rank %d\n", comm_ptr->rank);
 			// fflush(stdout);
 			if (comm_ptr->socket_roots_comm->rank == 0)
@@ -285,13 +288,18 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_SHM_mpi_reduce(const void *sendbuf, void *rec
 				ret = MPIDI_PIP_mpi_send(rank0_tmp_buffer, count, datatype, root, 0, comm_ptr, MPIR_CONTEXT_INTRA_COLL, NULL, &request);
 				if (ret != MPI_SUCCESS)
 					goto fn_exit;
-				MPL_free(rank0_tmp_buffer);
+
 			} else if (comm_ptr->rank == root) {
 				ret = MPIDI_PIP_mpi_recv(recvbuf, count, datatype, 0, 0, comm_ptr, MPIR_CONTEXT_INTRA_COLL,
 				                         MPI_STATUS_IGNORE, &request);
 				if (ret != MPI_SUCCESS)
 					goto fn_exit;
 			}
+			if (comm_ptr->socket_comm->rank == 0)
+				MPL_free(rank0_tmp_buffer);
+		} else {
+			if (comm_ptr->rank != 0 && comm_ptr->socket_comm->rank == 0)
+				MPL_free(rank0_tmp_buffer);
 		}
 	} else {
 		ret = MPIDI_PIP_mpi_reduce(sendbuf, recvbuf, count, datatype, op, root, comm_ptr, errflag, algo_parameters_container);

@@ -31,9 +31,9 @@
 #endif
 
 // long long pip_array[36];
-long long *data_addr_array;
-long long *data_addr_array1;
-pip_barrier_t *barp;
+// long long *data_addr_array;
+// long long *data_addr_array1;
+// pip_barrier_t *barp;
 /*
 === BEGIN_MPI_T_CVAR_INFO_BLOCK ===
 
@@ -826,6 +826,19 @@ fn_fail:
 	/* --END ERROR HANDLING-- */
 }
 
+/* Only deal with INTRA comm! */
+void MPIR_create_shared_addr(MPIR_Comm *comm){
+	int rank = comm->rank;
+	int size = comm->local_size;
+	MPIR_Errflag_t errflag = MPIR_ERR_NONE;
+	if(rank == 0){
+		comm->shared_addr = (long long*) MPL_malloc(sizeof(long long) * size, MPL_MEM_OTHER);
+		MPIR_Bcast(&comm->shared_addr, 1, MPI_LONG_LONG, 0, comm, &errflag);
+	}else{
+		MPIR_Bcast(&comm->shared_addr, 1, MPI_LONG_LONG, 0, comm, &errflag);
+	}
+	return;
+}
 
 /* I haven't consider if users will split MPI_COMM_WORLD out of MPI library. Need to refine this. */
 void socket_comm_init()
@@ -834,12 +847,12 @@ void socket_comm_init()
 	MPIR_Comm *intra_socket_comm = NULL;
 	MPIR_Comm *inter_socket_comm = NULL;
 
-	int myid, npips;
+	// int myid, npips;
 	// if (comm_ptr->rank == 0) {
 	// 	printf("start pip_init\n");
 	// 	fflush(stdout);
 	// }
-	pip_init(&myid, &npips, NULL, 0);
+	// pip_init(&myid, &npips, NULL, 0);
 	// extern long long *data_addr_array;
 	// extern long long pip_addr_array[36];
 	// printf("Start pip_get_addr rank %d, pip_array %p\n", comm_ptr->rank, pip_array);
@@ -849,7 +862,7 @@ void socket_comm_init()
 	// if(myid == 0){
 	// 	pip_barrier_init(barp, comm_ptr->local_size);
 	// }
-	pip_get_addr(0, "pip_addr_array", &data_addr_array);
+	// pip_get_addr(0, "pip_addr_array", &data_addr_array);
 	
 	// if(myid == 0)
 	// pip_get_addr(0, "pip_addr_array1", &data_addr_array1);
@@ -859,11 +872,14 @@ void socket_comm_init()
 	// printf("complete pip_init, myid %d, rank %d\n", myid, comm_ptr->rank);
 	// fflush(stdout);
 	// }
-	comm_ptr->pip_id = myid;
-
+	// comm_ptr->pip_id = myid;
+	MPIR_create_shared_addr(MPIR_Process.comm_world);
+	MPIR_create_shared_addr(comm_ptr);
 	MPIR_Comm_split_impl(MPIR_Process.comm_world, MPIR_Process.socket_id, 0, &intra_socket_comm);
 	comm_ptr->socket_comm = intra_socket_comm;
-
+	// printf("MPIR_create_shared_addr comm_ptr->socket_comm %p rank %d, \n", intra_socket_comm, MPIR_Process.comm_world->rank);
+	// fflush(stdout);
+	MPIR_create_shared_addr(comm_ptr->socket_comm);
 	// if(MPIR_Process.socket_id == 0)
 
 	if (comm_ptr->local_size != intra_socket_comm->local_size) {
@@ -873,13 +889,11 @@ void socket_comm_init()
 			// fflush(stdout);
 			MPIR_Comm_split_impl(comm_ptr, 0, 0, &inter_socket_comm);
 			comm_ptr->socket_roots_comm = inter_socket_comm;
+			MPIR_create_shared_addr(comm_ptr->socket_roots_comm);
 		} else {
 			MPIR_Comm_split_impl(comm_ptr, 1, 0, &inter_socket_comm);
 		}
 	}
-
-
-
 
 	return;
 }

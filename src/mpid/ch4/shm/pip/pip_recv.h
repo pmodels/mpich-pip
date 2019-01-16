@@ -20,7 +20,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_recv(void *buf,
         int tag,
         MPIR_Comm * comm,
         int context_offset, MPI_Status * status,
-        MPIR_Request ** request) {
+        MPIR_Request ** request)
+{
 
 	int mpi_errno = MPI_SUCCESS;
 	int errLine;
@@ -35,13 +36,13 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_recv(void *buf,
 		goto fn_fail;
 	}
 
-	if (*request != NULL) {
-		mpi_errno = MPID_PIP_Wait(*request);
-		if (mpi_errno != MPI_SUCCESS) {
-			errLine = __LINE__;
-			goto fn_fail;
-		}
+	// if (*request != NULL) {
+	mpi_errno = MPID_PIP_Wait(*request);
+	if (mpi_errno != MPI_SUCCESS) {
+		errLine = __LINE__;
+		goto fn_fail;
 	}
+	// }
 #endif
 
 
@@ -143,6 +144,11 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_mpi_recv(void *buf,
 #ifndef PIP_SYNC
 	int ack;
 	mpi_errno = MPIDI_POSIX_mpi_send(&ack, 1, MPI_INT, rank, 0, comm, context_offset, NULL, request);
+	if (mpi_errno != MPI_SUCCESS) {
+		errLine = __LINE__;
+		goto fn_fail;
+	}
+	mpi_errno = MPID_PIP_Wait(*request);
 	if (mpi_errno != MPI_SUCCESS) {
 		errLine = __LINE__;
 		goto fn_fail;

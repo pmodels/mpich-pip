@@ -539,10 +539,12 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Reduce_intra_composition_alpha(const void *se
                 sendbuf = tmp_buf;
             } else {
                 /* I am the root. in_place is automatically handled. */
+#ifndef NO_PIP_REDUCE_LOCAL
                 mpi_errno =
                     MPIDI_NM_mpi_reduce(sendbuf, recvbuf, count, datatype,
                                         op, MPIR_Get_internode_rank(comm, root),
                                         comm->node_roots_comm, errflag, reduce_roots_container);
+#endif
                 if (mpi_errno) {
                     /* for communication errors, just record the error but continue */
                     *errflag =
@@ -551,9 +553,10 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Reduce_intra_composition_alpha(const void *se
                     MPIR_ERR_SET(mpi_errno, *errflag, "**fail");
                     MPIR_ERR_ADD(mpi_errno_ret, mpi_errno);
                 }
-
+#ifndef NO_PIP_REDUCE_LOCAL
                 /* set sendbuf to MPI_IN_PLACE to make final intranode reduce easy. */
                 sendbuf = MPI_IN_PLACE;
+#endif
             }
         }
 

@@ -30,6 +30,7 @@
 #include <papi.h>
 #endif
 
+// void *global_buffer;
 // long long pip_array[36];
 // long long *data_addr_array;
 // long long *data_addr_array1;
@@ -827,14 +828,15 @@ fn_fail:
 }
 
 /* Only deal with INTRA comm! */
-void MPIR_create_shared_addr(MPIR_Comm *comm){
+void MPIR_create_shared_addr(MPIR_Comm *comm)
+{
 	int rank = comm->rank;
 	int size = comm->local_size;
 	MPIR_Errflag_t errflag = MPIR_ERR_NONE;
-	if(rank == 0){
+	if (rank == 0) {
 		comm->shared_addr = (long long*) MPL_malloc(sizeof(long long) * size, MPL_MEM_OTHER);
 		MPIR_Bcast(&comm->shared_addr, 1, MPI_LONG_LONG, 0, comm, &errflag);
-	}else{
+	} else {
 		MPIR_Bcast(&comm->shared_addr, 1, MPI_LONG_LONG, 0, comm, &errflag);
 	}
 	return;
@@ -846,7 +848,8 @@ void socket_comm_init()
 	MPIR_Comm *comm_ptr = MPIR_Process.comm_world->node_comm;
 	MPIR_Comm *intra_socket_comm = NULL;
 	MPIR_Comm *inter_socket_comm = NULL;
-
+	// global_buffer = malloc(8 * 1024 * 1024);
+	// memset(global_buffer, 0, 8 * 1024 * 1024);
 	// int myid, npips;
 	// if (comm_ptr->rank == 0) {
 	// 	printf("start pip_init\n");
@@ -863,7 +866,7 @@ void socket_comm_init()
 	// 	pip_barrier_init(barp, comm_ptr->local_size);
 	// }
 	// pip_get_addr(0, "pip_addr_array", &data_addr_array);
-	
+
 	// if(myid == 0)
 	// pip_get_addr(0, "pip_addr_array1", &data_addr_array1);
 

@@ -12,7 +12,7 @@
 #include "../posix/shm_inline.h"
 #include "../pip/pip_inline.h"
 
-
+// extern void *global_buffer;
 
 MPL_STATIC_INLINE_PREFIX int MPIDI_SHM_mpi_barrier(MPIR_Comm * comm, MPIR_Errflag_t * errflag,
         const void *algo_parameters_container)
@@ -260,6 +260,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_SHM_mpi_reduce(const void *sendbuf, void *rec
 		} else {
 			if (comm_ptr->rank != 0 && comm_ptr->socket_comm->rank == 0)
 				rank0_tmp_buffer = MPL_malloc(MPIR_Datatype_get_basic_size(datatype) * count, MPL_MEM_OTHER);
+				// rank0_tmp_buffer = global_buffer;
 			else
 				rank0_tmp_buffer = recvbuf;
 		}
@@ -275,9 +276,9 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_SHM_mpi_reduce(const void *sendbuf, void *rec
 			// printf("Inter socket comm, my rank %d\n", comm_ptr->rank);
 			// fflush(stdout);
 			if (comm_ptr->socket_roots_comm->rank == 0)
-				ret = MPIDI_PIP_mpi_reduce(MPI_IN_PLACE, rank0_tmp_buffer, count, datatype, op, 0, comm_ptr->socket_roots_comm, errflag, algo_parameters_container);
+				ret = MPIDI_PIP_mpi_tree_based_reduce(MPI_IN_PLACE, rank0_tmp_buffer, count, datatype, op, 0, comm_ptr->socket_roots_comm, errflag, algo_parameters_container);
 			else
-				ret = MPIDI_PIP_mpi_reduce(rank0_tmp_buffer, NULL, count, datatype, op, 0, comm_ptr->socket_roots_comm, errflag, algo_parameters_container);
+				ret = MPIDI_PIP_mpi_tree_based_reduce(rank0_tmp_buffer, NULL, count, datatype, op, 0, comm_ptr->socket_roots_comm, errflag, algo_parameters_container);
 			if (ret != MPI_SUCCESS)
 				goto fn_exit;
 		}
@@ -298,8 +299,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_SHM_mpi_reduce(const void *sendbuf, void *rec
 			if (comm_ptr->socket_comm->rank == 0)
 				MPL_free(rank0_tmp_buffer);
 		} else {
-			if (comm_ptr->rank != 0 && comm_ptr->socket_comm->rank == 0)
-				MPL_free(rank0_tmp_buffer);
+			// if (comm_ptr->rank != 0 && comm_ptr->socket_comm->rank == 0)
+			// 	MPL_free(rank0_tmp_buffer);
 		}
 	} else {
 		ret = MPIDI_PIP_mpi_reduce(sendbuf, recvbuf, count, datatype, op, root, comm_ptr, errflag, algo_parameters_container);

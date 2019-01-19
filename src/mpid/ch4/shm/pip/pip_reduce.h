@@ -1,10 +1,6 @@
 #ifndef PIP_REDUCE_INCLUDED
 #define PIP_REDUCE_INCLUDED
-#include <pip.h>
-extern long long *data_addr_array;
-extern pip_barrier_t *barp;
-// extern long long pip_array[36];
-// long long *data_addr_array[36];
+
 
 void MPIR_create_shared_addr(MPIR_Comm *comm);
 #undef FCNAME
@@ -14,11 +10,6 @@ static inline int MPIDI_PIP_mpi_reduce(const void *sendbuf, void *recvbuf, int c
                                        MPIR_Comm * comm, MPIR_Errflag_t * errflag,
                                        const void *ch4_algo_parameters_container_in __attribute__((unused)))
 {
-	/*
-		Current version does not consider the inter sockets communications.
-		optimized implementation should add this feature which needs to
-		modify the comm structure and split function.
-	*/
 
 	int mpi_errno = MPI_SUCCESS;
 	int myrank = comm->rank;
@@ -33,7 +24,7 @@ static inline int MPIDI_PIP_mpi_reduce(const void *sendbuf, void *recvbuf, int c
 		goto fn_exit;
 
 	/* Should not happen in application call */
-	if(comm->shared_addr == NULL)
+	if (comm->shared_addr == NULL)
 		MPIR_create_shared_addr(comm);
 	// pip_barrier_t barp;
 	// if(myrank == 0)
@@ -47,9 +38,11 @@ static inline int MPIDI_PIP_mpi_reduce(const void *sendbuf, void *recvbuf, int c
 	if (myrank == root) {
 		// 	*(__s64*)(destheader + 1) = 1L;
 		// 	*(__s64*)(destheader + 1) = 0L;
+#ifndef NO_PIP_REDUCE_LOCAL
 		if (sendbuf != MPI_IN_PLACE) {
 			memcpy(recvbuf, sendbuf, dataSz);
 		}
+#endif
 		data_addr = (long long)recvbuf;
 		// printf("Rank: %d, root %d expose dest buffer with handler %llX\n", myrank, root, destheader.dtHandler);
 		// fflush(stdout);
@@ -57,7 +50,6 @@ static inline int MPIDI_PIP_mpi_reduce(const void *sendbuf, void *recvbuf, int c
 		data_addr = (long long)sendbuf;
 	}
 
-	
 	size_t sindex = (size_t) (myrank * count / psize);
 	size_t ssize = sindex * typesize;
 	size_t len = (size_t) ((myrank + 1) * count / psize) - sindex;
@@ -89,10 +81,10 @@ static inline int MPIDI_PIP_mpi_reduce(const void *sendbuf, void *recvbuf, int c
 	MPIDI_POSIX_mpi_barrier(comm, errflag, NULL);
 	// COLL_SHMEM_MODULE = PIP_MODULE;
 	void *outdest = (void*) ((char*) comm->shared_addr[root] + ssize);
-	
+
 	// printf("Reduce: ready copy rank %d\n", myrank);
 	// fflush(stdout);
-#ifndef NO_PIP_REDUCE
+#ifndef NO_PIP_REDUCE_LOCAL
 	/* Attach src data from each other within a for loop */
 	for (int i = 0; i < psize; ++i) {
 		if (i == root) {
@@ -122,6 +114,7 @@ static inline int MPIDI_PIP_mpi_reduce(const void *sendbuf, void *recvbuf, int c
 
 		src = (void*) comm->shared_addr[i];
 		void *insrc = (void*) ((char*) src + ssize);
+
 		MPIR_Reduce_local(insrc, outdest, len, datatype, op);
 
 	}
@@ -132,11 +125,99 @@ static inline int MPIDI_PIP_mpi_reduce(const void *sendbuf, void *recvbuf, int c
 	MPIDI_POSIX_mpi_barrier(comm, errflag, NULL);
 	// COLL_SHMEM_MODULE = PIP_MODULE;
 
-	goto fn_exit;
-fn_fail :
-	printf("[%s-%d] Error with mpi_errno (%d)\n", __FUNCTION__, errLine, mpi_errno);
 fn_exit :
 	return mpi_errno;
+fn_fail :
+	printf("[%s-%d] Error with mpi_errno (%d)\n", __FUNCTION__, errLine, mpi_errno);
+	goto fn_exit;
+}
+
+
+#undef FCNAME
+#define FCNAME MPL_QUOTE(MPIDI_PIP_mpi_reduce)
+static inline int MPIDI_PIP_mpi_tree_based_reduce(const void *sendbuf, void *recvbuf, int count,
+        MPI_Datatype datatype, MPI_Op op, int root,
+        MPIR_Comm * comm, MPIR_Errflag_t * errflag,
+        const void *ch4_algo_parameters_container_in __attribute__((unused)))
+{
+	/* Current tree base algorithm only deal with power of 2 sockets */
+	int mpi_errno = MPI_SUCCESS;
+	int myrank = comm->rank;
+	int psize = comm->local_size;
+	int errLine;
+	void *dest = NULL;
+	void *src = NULL;
+	int step = 1;
+	int new_rank = myrank;
+	MPIR_Request *request;
+	int size = MPIR_Datatype_get_basic_size(datatype) * count;
+
+	void* local_buffer;
+	int ack;
+
+	if ((myrank & 1) == 0) {
+		if (myrank != root) {
+			local_buffer = MPL_malloc(size, MPL_MEM_OTHER);
+			MPIR_Memcpy(local_buffer, sendbuf, size);
+		} else {
+			/* root sendbuf should be MPI_IN_PLACE */
+			local_buffer = recvbuf;
+		}
+	} else {
+		local_buffer = sendbuf;
+	}
+
+	while (1) {
+		if (new_rank & 1) {
+			src = local_buffer;
+			mpi_errno = MPIDI_POSIX_mpi_send(&src, 1, MPI_LONG_LONG, myrank - step, 0, comm, MPIR_CONTEXT_INTRA_COLL, NULL, &request);
+			if (unlikely(mpi_errno != MPI_SUCCESS))
+				goto fn_fail;
+			mpi_errno = MPID_PIP_Wait(request);
+			if (unlikely(mpi_errno != MPI_SUCCESS))
+				goto fn_fail;
+
+			mpi_errno = MPIDI_POSIX_mpi_recv(&ack, 1, MPI_INT, myrank - step, 0, comm, MPIR_CONTEXT_INTRA_COLL, MPI_STATUS_IGNORE, &request);
+			if (unlikely(mpi_errno != MPI_SUCCESS))
+				goto fn_fail;
+			MPID_PIP_Wait(request);
+			if (unlikely(mpi_errno != MPI_SUCCESS))
+				goto fn_fail;
+			break;
+		} else {
+			mpi_errno = MPIDI_POSIX_mpi_recv(&src, 1, MPI_LONG_LONG, myrank + step, 0, comm, MPIR_CONTEXT_INTRA_COLL, MPI_STATUS_IGNORE, &request);
+			if (unlikely(mpi_errno != MPI_SUCCESS))
+				goto fn_fail;
+			MPID_PIP_Wait(request);
+			if (unlikely(mpi_errno != MPI_SUCCESS))
+				goto fn_fail;
+#ifndef NO_PIP_REDUCE_LOCAL
+			MPIR_Reduce_local(src, local_buffer, count, datatype, op);
+#endif
+
+			mpi_errno = MPIDI_POSIX_mpi_send(&ack, 1, MPI_INT, myrank + step, 0, comm, MPIR_CONTEXT_INTRA_COLL, NULL, &request);
+			if (unlikely(mpi_errno != MPI_SUCCESS))
+				goto fn_fail;
+			MPID_PIP_Wait(request);
+			if (unlikely(mpi_errno != MPI_SUCCESS))
+				goto fn_fail;
+
+			new_rank = new_rank >> 1;
+			step = step << 1;
+			if (step >= psize)
+				break;
+		}
+	}
+
+	if ((myrank & 1) == 0 && myrank != root) {
+		MPL_free(local_buffer);
+	}
+
+fn_exit :
+	return mpi_errno;
+fn_fail :
+	printf("[%s-%d] Error with mpi_errno (%d)\n", __FUNCTION__, errLine, mpi_errno);
+	goto fn_exit;
 }
 
 #endif

@@ -1,6 +1,7 @@
 #ifndef PIP_REDUCE_INCLUDED
 #define PIP_REDUCE_INCLUDED
 
+#include "pip_barrier.h"
 
 void MPIR_create_shared_addr(MPIR_Comm *comm);
 #undef FCNAME
@@ -24,8 +25,8 @@ static inline int MPIDI_PIP_mpi_reduce(const void *sendbuf, void *recvbuf, int c
 		goto fn_exit;
 
 	/* Should not happen in application call */
-	if (comm->shared_addr == NULL)
-		MPIR_create_shared_addr(comm);
+	// if (comm->shared_addr == NULL)
+	// 	MPIR_create_shared_buffer(comm);
 	// pip_barrier_t barp;
 	// if(myrank == 0)
 	// 	pip_barrier_init(barp, psize);
@@ -73,12 +74,13 @@ static inline int MPIDI_PIP_mpi_reduce(const void *sendbuf, void *recvbuf, int c
 	// fflush(stdout);
 	// printf("myrank %d, before barrier\n", myrank);
 	// fflush(stdout);
+	// MPIDI_POSIX_mpi_barrier(comm, errflag, NULL);
+	MPIDI_PIP_mpi_barrier(comm);
 	// pip_barrier_wait(barp);
 	// printf("myrank %d, after barrier\n", myrank);
 	// fflush(stdout);
 	// COLL_SHMEM_MODULE = POSIX_MODULE;
 
-	MPIDI_POSIX_mpi_barrier(comm, errflag, NULL);
 	// COLL_SHMEM_MODULE = PIP_MODULE;
 	void *outdest = (void*) ((char*) comm->shared_addr[root] + ssize);
 
@@ -122,7 +124,8 @@ static inline int MPIDI_PIP_mpi_reduce(const void *sendbuf, void *recvbuf, int c
 	// pip_barrier_wait(barp);
 	// MPI_free(data_addr_array);
 	// COLL_SHMEM_MODULE = POSIX_MODULE;
-	MPIDI_POSIX_mpi_barrier(comm, errflag, NULL);
+	// MPIDI_POSIX_mpi_barrier(comm, errflag, NULL);
+	MPIDI_PIP_mpi_barrier(comm);
 	// COLL_SHMEM_MODULE = PIP_MODULE;
 
 fn_exit :

@@ -5,5 +5,5 @@
 #include "pip_send.h"
 #include "pip_progress.h"
 #include "pip_reduce.h"
-
+#include "pip_barrier.h"
 #endif

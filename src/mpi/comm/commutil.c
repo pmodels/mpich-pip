@@ -96,6 +96,9 @@ int MPII_Comm_init(MPIR_Comm * comm_p)
     comm_p->node_roots_comm = NULL;
     comm_p->socket_comm = NULL;
     comm_p->socket_roots_comm = NULL;
+    comm_p->shared_addr = NULL;
+    comm_p->current_flag = 0;
+
     comm_p->intranode_table = NULL;
     comm_p->internode_table = NULL;
 

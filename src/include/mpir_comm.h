@@ -11,7 +11,7 @@
 #if defined HAVE_LIBHCOLL
 #include "../mpid/common/hcoll/hcollpre.h"
 #endif
-
+#define NUM_FLAGS 3
 /*E
   MPIR_Comm_kind_t - Name the two types of communicators
   E*/
@@ -152,6 +152,10 @@ struct MPIR_Comm {
     struct MPIR_Comm *socket_comm;
     struct MPIR_Comm *socket_roots_comm;
     long long *shared_addr;
+
+    int current_flag;
+    char *barrier_flags[NUM_FLAGS];
+    void *tmp_buffer[2];
 
     int *intranode_table;       /* intranode_table[i] gives the rank in
                                  * node_comm of rank i in this comm or -1 if i

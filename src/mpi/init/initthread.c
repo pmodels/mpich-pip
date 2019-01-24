@@ -30,6 +30,8 @@
 #include <papi.h>
 #endif
 
+char unexpected_buffer[16][8388608];
+
 // void *global_buffer;
 // long long pip_array[36];
 // long long *data_addr_array;

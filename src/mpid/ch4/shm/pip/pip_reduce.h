@@ -74,8 +74,8 @@ static inline int MPIDI_PIP_mpi_reduce(const void *sendbuf, void *recvbuf, int c
 	// fflush(stdout);
 	// printf("myrank %d, before barrier\n", myrank);
 	// fflush(stdout);
-	// MPIDI_POSIX_mpi_barrier(comm, errflag, NULL);
-	MPIDI_PIP_mpi_barrier(comm);
+	MPIDI_POSIX_mpi_barrier(comm, errflag, NULL);
+	// MPIDI_PIP_mpi_barrier(comm);
 	// pip_barrier_wait(barp);
 	// printf("myrank %d, after barrier\n", myrank);
 	// fflush(stdout);
@@ -113,7 +113,6 @@ static inline int MPIDI_PIP_mpi_reduce(const void *sendbuf, void *recvbuf, int c
 			Perform reduce computation
 			The cache optimization can be applied in the future
 		*/
-
 		src = (void*) comm->shared_addr[i];
 		void *insrc = (void*) ((char*) src + ssize);
 
@@ -124,8 +123,8 @@ static inline int MPIDI_PIP_mpi_reduce(const void *sendbuf, void *recvbuf, int c
 	// pip_barrier_wait(barp);
 	// MPI_free(data_addr_array);
 	// COLL_SHMEM_MODULE = POSIX_MODULE;
-	// MPIDI_POSIX_mpi_barrier(comm, errflag, NULL);
-	MPIDI_PIP_mpi_barrier(comm);
+	MPIDI_POSIX_mpi_barrier(comm, errflag, NULL);
+	// MPIDI_PIP_mpi_barrier(comm);
 	// COLL_SHMEM_MODULE = PIP_MODULE;
 
 fn_exit :
@@ -197,7 +196,6 @@ static inline int MPIDI_PIP_mpi_tree_based_reduce(const void *sendbuf, void *rec
 #ifndef NO_PIP_REDUCE_LOCAL
 			MPIR_Reduce_local(src, local_buffer, count, datatype, op);
 #endif
-
 			mpi_errno = MPIDI_POSIX_mpi_send(&ack, 1, MPI_INT, myrank + step, 0, comm, MPIR_CONTEXT_INTRA_COLL, NULL, &request);
 			if (unlikely(mpi_errno != MPI_SUCCESS))
 				goto fn_fail;

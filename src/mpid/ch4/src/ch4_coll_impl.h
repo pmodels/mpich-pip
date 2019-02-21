@@ -464,25 +464,25 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Reduce_intra_composition_alpha(const void *se
 
 	// void *tmp_buf = comm->tmp_buffer[0];
 	void *tmp_buf = NULL;
-	const size_t MB_1 = 1 << 20;
+	// const size_t MB_1 = 1 << 20;
 
 	/* Create a temporary buffer on local roots of all nodes */
 	size_t dsize = MPIR_Datatype_get_basic_size(datatype) * count;
 	if (comm->node_roots_comm != NULL) {
 
-		if (dsize > MB_1) {
-			MPIR_Type_get_true_extent_impl(datatype, &true_lb, &true_extent);
-			MPIR_Datatype_get_extent_macro(datatype, extent);
+		// if (dsize > MB_1) {
+		MPIR_Type_get_true_extent_impl(datatype, &true_lb, &true_extent);
+		MPIR_Datatype_get_extent_macro(datatype, extent);
 
-			MPIR_Ensure_Aint_fits_in_pointer(count * MPL_MAX(extent, true_extent));
+		MPIR_Ensure_Aint_fits_in_pointer(count * MPL_MAX(extent, true_extent));
 
-			MPIR_CHKLMEM_MALLOC(tmp_buf, void *, count * (MPL_MAX(extent, true_extent)),
-			                    mpi_errno, "temporary buffer", MPL_MEM_BUFFER);
-			/* adjust for potential negative lower bound in datatype */
-			tmp_buf = (void *) ((char *) tmp_buf - true_lb);
-		} else {
-			tmp_buf = comm->tmp_buffer[0];
-		}
+		MPIR_CHKLMEM_MALLOC(tmp_buf, void *, count * (MPL_MAX(extent, true_extent)),
+		                    mpi_errno, "temporary buffer", MPL_MEM_BUFFER);
+		/* adjust for potential negative lower bound in datatype */
+		tmp_buf = (void *) ((char *) tmp_buf - true_lb);
+		// } else {
+		// 	tmp_buf = comm->tmp_buffer[0];
+		// }
 	}
 
 	/* do the intranode reduce on all nodes other than the root's node */
@@ -546,8 +546,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Reduce_intra_composition_alpha(const void *se
 				sendbuf = tmp_buf;
 			} else {
 				/* I am the root. in_place is automatically handled. */
-        // printf("rank %d, comm->node_roots_comm->local_size %d\n", comm->rank, comm->node_roots_comm->local_size);
-        // fflush(stdout);
+				// printf("rank %d, comm->node_roots_comm->local_size %d\n", comm->rank, comm->node_roots_comm->local_size);
+				// fflush(stdout);
 				if (comm->node_roots_comm->local_size != 1) {
 #ifndef NO_PIP_REDUCE_LOCAL
 					mpi_errno =
@@ -568,7 +568,6 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Reduce_intra_composition_alpha(const void *se
 					sendbuf = MPI_IN_PLACE;
 #endif
 				}
-
 			}
 		}
 

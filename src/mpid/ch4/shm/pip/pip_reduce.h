@@ -1,7 +1,7 @@
 #ifndef PIP_REDUCE_INCLUDED
 #define PIP_REDUCE_INCLUDED
 
-#include "pip_barrier.h"
+//#include "pip_barrier.h"
 
 void MPIR_create_shared_addr(MPIR_Comm *comm);
 #undef FCNAME

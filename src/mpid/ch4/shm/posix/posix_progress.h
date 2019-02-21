@@ -209,10 +209,10 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_recv(int blocking, int *comple
             MPIDI_POSIX_REQUEST(rreq)->type = cell->pkt.mpich.type;
 
             if (data_sz > 0) {
-                // MPIDI_POSIX_REQUEST(rreq)->user_buf = (char *) MPL_malloc(data_sz, MPL_MEM_SHM);
-                static int buffer_id = 0;
-                MPIDI_POSIX_REQUEST(rreq)->user_buf = unexpected_buffer[buffer_id];
-                buffer_id = (buffer_id + 1) % 16;
+                MPIDI_POSIX_REQUEST(rreq)->user_buf = (char *) MPL_malloc(data_sz, MPL_MEM_SHM);
+                // static int buffer_id = 0;
+                // MPIDI_POSIX_REQUEST(rreq)->user_buf = unexpected_buffer[buffer_id];
+                // buffer_id = (buffer_id + 1) % 16;
                 MPIR_Memcpy(MPIDI_POSIX_REQUEST(rreq)->user_buf, (void *) cell->pkt.mpich.p.payload,
                             data_sz);
             } else {
@@ -250,7 +250,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_recv(int blocking, int *comple
     } else {
         /* destroy unexpected req */
         MPIDI_POSIX_REQUEST(sreq)->pending = NULL;
-        // MPL_free(MPIDI_POSIX_REQUEST(sreq)->user_buf);
+        MPL_free(MPIDI_POSIX_REQUEST(sreq)->user_buf);
         MPIDI_POSIX_REQUEST_DEQUEUE_AND_SET_ERROR(&sreq, prev_sreq, MPIDI_POSIX_recvq_unexpected,
                                                   mpi_errno);
     }

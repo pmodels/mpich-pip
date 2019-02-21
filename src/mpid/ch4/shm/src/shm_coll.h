@@ -260,8 +260,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_SHM_mpi_reduce(const void *sendbuf, void *rec
 				rank0_tmp_buffer = MPL_malloc(MPIR_Datatype_get_basic_size(datatype) * count, MPL_MEM_OTHER);
 		} else {
 			if (comm_ptr->rank != 0 && comm_ptr->socket_comm->rank == 0)
-				rank0_tmp_buffer = comm_ptr->tmp_buffer[1];
-			// rank0_tmp_buffer = MPL_malloc(MPIR_Datatype_get_basic_size(datatype) * count, MPL_MEM_OTHER);
+				rank0_tmp_buffer = MPL_malloc(MPIR_Datatype_get_basic_size(datatype) * count, MPL_MEM_OTHER);
+			//rank0_tmp_buffer = comm_ptr->tmp_buffer[1];
 			// rank0_tmp_buffer = global_buffer;
 			else
 				rank0_tmp_buffer = recvbuf;
@@ -300,11 +300,10 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_SHM_mpi_reduce(const void *sendbuf, void *rec
 			}
 			if (comm_ptr->socket_comm->rank == 0)
 				MPL_free(rank0_tmp_buffer);
+		} else {
+			if (comm_ptr->rank != 0 && comm_ptr->socket_comm->rank == 0)
+				MPL_free(rank0_tmp_buffer);
 		}
-		// else {
-		// if (comm_ptr->rank != 0 && comm_ptr->socket_comm->rank == 0)
-		// 	MPL_free(rank0_tmp_buffer);
-		// }
 	}
 	// else {
 	// 	ret = MPIDI_PIP_mpi_reduce(sendbuf, recvbuf, count, datatype, op, root, comm_ptr, errflag, algo_parameters_container);

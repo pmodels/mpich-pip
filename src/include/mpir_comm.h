@@ -154,8 +154,8 @@ struct MPIR_Comm {
     long long *shared_addr;
 
     int current_flag;
-    char *barrier_flags[NUM_FLAGS];
-    void *tmp_buffer[2];
+    // char *barrier_flags[NUM_FLAGS];
+    // void *tmp_buffer[2];
 
     int *intranode_table;       /* intranode_table[i] gives the rank in
                                  * node_comm of rank i in this comm or -1 if i

@@ -29,7 +29,7 @@ information on bug fixes and new releases.
 11. ABI Compatibility
 12. Capability Sets
 13. Threads
-
+14. Using PiP with MPICH
 
 -------------------------------------------------------------------------
 
@@ -898,3 +898,20 @@ configure options:
     --with-thread-package=argobots \
         CFLAGS="-I<path_to_argobots/include>" \
         LDFLAGS="-L<path_to_argobots/lib>"
+
+-------------------------------------------------------------------------
+
+14. Using PiP with MPICH
+===========
+
+The Process-in-Process (PiP) model can be used with MPICH. In PiP-aware MPICH,
+each MPI process is a PiP task and all MPI processes on a node share the same
+virtual address space.
+
+Note that only the Hydra process manager supports the PiP model.
+
+To configure MPICH to work with PiP, use the following configure option:
+    --with-pip-prefix=<path_to_pip_installation> \
+    --with-ldlinux=<path_to_pip_patched_glibc_installation> \
+    --disable-static
+

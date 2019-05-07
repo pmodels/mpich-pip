@@ -14,12 +14,85 @@
 #include "posix_impl.h"
 #include "ch4_types.h"
 #include "mpidu_shm.h"
-
+#include <time.h>
+#include <../pip/pip_pre.h>
+extern MPIR_Object_alloc_t MPIDI_Task_mem;
 /* ------------------------------------------------------- */
 /* from mpid/ch3/channels/nemesis/src/mpid_nem_init.c */
 /* ------------------------------------------------------- */
 extern MPIDI_POSIX_mem_region_t MPIDI_POSIX_mem_region;
 extern char *MPIDI_POSIX_asym_base_addr;
+extern MPIDI_PIP_global_t pip_global;
+
+void MPIDI_PIP_init()
+{
+    int mpi_errno = MPI_SUCCESS, i;
+    int num_local, local_rank;
+    uint64_t *task_queue_addr;
+    MPIR_Errflag_t errflag = MPIR_ERR_NONE;
+    MPIDI_PIP_task_t *dummy;
+    MPIR_CHKPMEM_DECL(4);
+
+    pip_global.num_local = num_local = MPIDI_POSIX_mem_region.num_local;
+    pip_global.local_rank = local_rank = MPIDI_POSIX_mem_region.local_rank;
+    MPIR_CHKPMEM_MALLOC(pip_global.local_counter, uint64_t *,
+                        num_local * sizeof(uint64_t), mpi_errno, "pip_local_counter", MPL_MEM_SHM);
+    MPIR_CHKPMEM_MALLOC(pip_global.shm_counter, uint64_t *,
+                        num_local * sizeof(uint64_t), mpi_errno, "pip_shm_counter", MPL_MEM_SHM);
+
+    memset(pip_global.local_counter, 0, num_local * sizeof(uint64_t));
+    memset(pip_global.shm_counter, 0, num_local * sizeof(uint64_t));
+
+    MPIR_CHKPMEM_MALLOC(pip_global.local_task_queue, MPIDI_PIP_task_queue_t *,
+                        sizeof(MPIDI_PIP_task_queue_t), mpi_errno, "local_task_queue", MPL_MEM_SHM);
+    MPIR_CHKPMEM_MALLOC(pip_global.shm_task_queue, MPIDI_PIP_task_queue_t **,
+                        num_local * sizeof(MPIDI_PIP_task_queue_t *), mpi_errno, "shm_task_queue",
+                        MPL_MEM_SHM);
+
+    dummy = (MPIDI_PIP_task_t *) MPIR_Handle_obj_alloc(&MPIDI_Task_mem);
+    dummy->next = NULL;
+    pip_global.local_task_queue->head = pip_global.local_task_queue->tail = dummy;
+
+    if (MPIR_Process.comm_world->node_comm) {
+        MPIDU_shm_seg_t pip_memory;
+        MPIDU_shm_barrier_t *pip_barrier;
+        mpi_errno =
+            MPIDU_shm_seg_alloc(num_local * sizeof(uint64_t),
+                                (void **) &task_queue_addr, MPL_MEM_SHM);
+        if (mpi_errno)
+            MPIR_ERR_POP(mpi_errno);
+
+        mpi_errno =
+            MPIDU_shm_seg_commit(&pip_memory, &pip_barrier,
+                                 num_local, local_rank, MPIDI_POSIX_mem_region.local_procs[0],
+                                 MPIDI_POSIX_mem_region.rank, MPL_MEM_SHM);
+        if (mpi_errno)
+            MPIR_ERR_POP(mpi_errno);
+
+        task_queue_addr[local_rank] = (uint64_t) pip_global.local_task_queue;
+
+        mpi_errno = MPIDU_shm_barrier(pip_barrier, num_local);
+        if (mpi_errno)
+            MPIR_ERR_POP(mpi_errno);
+
+        for (i = 0; i < num_local; ++i)
+            pip_global.shm_task_queue[i] = (MPIDI_PIP_task_queue_t *) task_queue_addr[i];
+
+        mpi_errno = MPIDU_shm_seg_destroy(&pip_memory, num_local);
+        if (mpi_errno)
+            MPIR_ERR_POP(mpi_errno);
+    } else {
+        pip_global.shm_task_queue[0] = pip_global.local_task_queue;
+    }
+
+    srand(time(NULL) / (local_rank + 1));
+
+  fn_exit:
+    return;
+  fn_fail:
+    MPIR_CHKPMEM_REAP();
+    goto fn_exit;
+}
 
 #undef FCNAME
 #define FCNAME MPL_QUOTE(MPIDI_POSIX_mpi_init_hook)
@@ -227,6 +300,8 @@ static inline int MPIDI_POSIX_mpi_init_hook(int rank, int size, int *n_vnis_prov
     *tag_bits = MPIR_TAG_BITS_DEFAULT;
 
     MPIR_CHKPMEM_COMMIT();
+
+    MPIDI_PIP_init();
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_POSIX_INIT);
     return mpi_errno;

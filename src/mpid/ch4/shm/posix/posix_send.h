@@ -61,6 +61,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_do_isend(const void *buf,
     MPIDI_POSIX_REQUEST(sreq)->segment_ptr = NULL;
 
     if (!dt_contig) {
+        printf("rank %d - pack segment init\n", MPIDI_POSIX_mem_region.local_rank);
+        fflush(stdout);
         MPIDI_POSIX_REQUEST(sreq)->segment_ptr = MPIR_Segment_alloc();
         MPIR_ERR_CHKANDJUMP1((MPIDI_POSIX_REQUEST(sreq)->segment_ptr == NULL), mpi_errno,
                              MPI_ERR_OTHER, "**nomem", "**nomem %s", "MPIR_Segment_alloc");
@@ -69,6 +71,10 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_do_isend(const void *buf,
                           MPIDI_POSIX_REQUEST(sreq)->segment_ptr);
         MPIDI_POSIX_REQUEST(sreq)->segment_first = 0;
         MPIDI_POSIX_REQUEST(sreq)->segment_size = data_sz;
+    } else {
+        // printf("rank %d - data is contiguous\n", MPIDI_POSIX_mem_region.local_rank);
+        // fflush(stdout);
+        MPIDI_POSIX_REQUEST(sreq)->segment_ptr = NULL;
     }
 
     MPIR_Datatype_add_ref_if_not_builtin(datatype);
@@ -95,38 +101,39 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_mpi_send(const void *buf, MPI_Aint coun
                                                   MPIR_Comm * comm, int context_offset,
                                                   MPIDI_av_entry_t * addr, MPIR_Request ** request)
 {
-    int dt_contig __attribute__ ((__unused__)), mpi_errno = MPI_SUCCESS;
-    MPI_Aint dt_true_lb;
-    size_t data_sz;
-    MPIR_Datatype *dt_ptr;
+    // int dt_contig __attribute__ ((__unused__)), mpi_errno = MPI_SUCCESS;
+    // MPI_Aint dt_true_lb;
+    // size_t data_sz;
+    // MPIR_Datatype *dt_ptr;
+    int mpi_errno = MPI_SUCCESS;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_POSIX_MPI_SEND);
 
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_POSIX_MPI_SEND);
     MPID_THREAD_CS_ENTER(POBJ, MPIDI_POSIX_SHM_MUTEX);
-    MPIDI_Datatype_get_info(count, datatype, dt_contig, data_sz, dt_ptr, dt_true_lb);
+    // MPIDI_Datatype_get_info(count, datatype, dt_contig, data_sz, dt_ptr, dt_true_lb);
 
     /* try to send immediately, contig, short message */
-    if (dt_contig && data_sz <= MPIDI_POSIX_EAGER_THRESHOLD) {
-        /* eager message */
-        int grank = MPIDI_CH4U_rank_to_lpid(rank, comm);
+    // if (dt_contig && data_sz <= MPIDI_POSIX_EAGER_THRESHOLD) {
+    //     /* eager message */
+    //     int grank = MPIDI_CH4U_rank_to_lpid(rank, comm);
 
-        /* Try freeQ */
-        if (!MPIDI_POSIX_queue_empty(MPIDI_POSIX_mem_region.my_freeQ)) {
-            MPIDI_POSIX_cell_ptr_t cell;
-            MPIDI_POSIX_queue_dequeue(MPIDI_POSIX_mem_region.my_freeQ, &cell);
-            MPIDI_POSIX_ENVELOPE_SET(cell, comm->rank, tag, comm->context_id + context_offset);
-            cell->pkt.mpich.datalen = data_sz;
-            cell->pkt.mpich.type = MPIDI_POSIX_TYPEEAGER;
-            MPIR_Memcpy((void *) cell->pkt.mpich.p.payload, (char *) buf + dt_true_lb, data_sz);
-            cell->pending = NULL;
-            MPIDI_POSIX_queue_enqueue(MPIDI_POSIX_mem_region.RecvQ[grank], cell);
-            *request = NULL;
-            MPL_DBG_MSG_FMT(MPIR_DBG_HANDLE, TYPICAL,
-                            (MPL_DBG_FDEST, "Sent to grank %d from %d in send %d,%d,%d\n", grank,
-                             cell->my_rank, cell->rank, cell->tag, cell->context_id));
-            goto fn_exit;
-        }
-    }
+    //     /* Try freeQ */
+    //     if (!MPIDI_POSIX_queue_empty(MPIDI_POSIX_mem_region.my_freeQ)) {
+    //         MPIDI_POSIX_cell_ptr_t cell;
+    //         MPIDI_POSIX_queue_dequeue(MPIDI_POSIX_mem_region.my_freeQ, &cell);
+    //         MPIDI_POSIX_ENVELOPE_SET(cell, comm->rank, tag, comm->context_id + context_offset);
+    //         cell->pkt.mpich.datalen = data_sz;
+    //         cell->pkt.mpich.type = MPIDI_POSIX_TYPEEAGER;
+    //         MPIR_Memcpy((void *) cell->pkt.mpich.p.payload, (char *) buf + dt_true_lb, data_sz);
+    //         cell->pending = NULL;
+    //         MPIDI_POSIX_queue_enqueue(MPIDI_POSIX_mem_region.RecvQ[grank], cell);
+    //         *request = NULL;
+    //         MPL_DBG_MSG_FMT(MPIR_DBG_HANDLE, TYPICAL,
+    //                         (MPL_DBG_FDEST, "Sent to grank %d from %d in send %d,%d,%d\n", grank,
+    //                          cell->my_rank, cell->rank, cell->tag, cell->context_id));
+    //         goto fn_exit;
+    //     }
+    // }
 
     /* Long message or */
     /* Failed to send immediately - create and return request */

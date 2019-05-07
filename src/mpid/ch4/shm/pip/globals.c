@@ -9,13 +9,14 @@
  *  Contributor License Agreement dated February 8, 2012.
  */
 
-#ifndef SHM_PRE_H_INCLUDED
-#define SHM_PRE_H_INCLUDED
+#include "pip_pre.h"
 
-#include <mpi.h>
+MPIDI_PIP_global_t pip_global;
 
-#include "../posix/posix_pre.h"
-// #include "../pip/pip_pre.h"
+MPIR_Request MPIDI_Task_direct[MPIDI_TASK_PREALLOC] = { {0}
+};
 
-#include "shm_coll_params.h"
-#endif /* SHM_PRE_H_INCLUDED */
+MPIR_Object_alloc_t MPIDI_Task_mem = {
+    0, 0, 0, 0, MPIDI_TASK, sizeof(MPIDI_PIP_task_t), MPIDI_Task_direct,
+    MPIDI_TASK_PREALLOC
+};

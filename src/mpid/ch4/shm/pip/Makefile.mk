@@ -2,7 +2,6 @@
 ## vim: set ft=automake :
 ##
 ## (C) 2016 by Argonne National Laboratory.
-## (C) 2014 by Mellanox Technologies, Inc.
 ##     See COPYRIGHT in top-level directory.
 ##
 ##  Portions of this code were written by Intel Corporation.
@@ -11,11 +10,11 @@
 ##  Contributor License Agreement dated February 8, 2012.
 ##
 
-AM_CPPFLAGS += -I$(top_srcdir)/src/mpid/ch4/shm/include
+if BUILD_SHM_POSIX
 
-noinst_HEADERS += src/mpid/ch4/shm/include/shm.h
+noinst_HEADERS += src/mpid/ch4/shm/pip/pip_pre.h   \    
+			      src/mpid/ch4/shm/pip/pip_impl.h   
 
-include $(top_srcdir)/src/mpid/ch4/shm/src/Makefile.mk
-include $(top_srcdir)/src/mpid/ch4/shm/stubshm/Makefile.mk
-include $(top_srcdir)/src/mpid/ch4/shm/posix/Makefile.mk
-include $(top_srcdir)/src/mpid/ch4/shm/pip/Makefile.mk
+mpi_core_sources += src/mpid/ch4/shm/pip/globals.c
+
+endif

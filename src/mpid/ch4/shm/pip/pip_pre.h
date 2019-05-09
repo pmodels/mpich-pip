@@ -16,6 +16,8 @@
 
 #define MPIDI_TASK_PREALLOC 64
 
+struct MPIDI_PIP_task_queue;
+
 /* Use cell->pkt.mpich.type = MPIDI_POSIX_TYPEEAGER to judge the complete transfer */
 typedef struct MPIDI_PIP_task {
     MPIR_OBJECT_HEADER;
@@ -24,35 +26,38 @@ typedef struct MPIDI_PIP_task {
         MPIDI_POSIX_cell_ptr_t cell;
         MPIR_Request *unexp_req;
     };
-    union {
-        uint64_t cell_id;
-        uint64_t in_cell;
-    };
-    union {
-        volatile uint64_t *cur_cell_id;
-        uint64_t type;
-    };
-    int send_to;
-    size_t data_sz;
+
+    volatile uint64_t *cur_task_id;
+    uint64_t task_id;
+    uint64_t in_cell;
+    int type;
+    int send_flag;
+    int *completion_count;
     MPIDI_POSIX_queue_ptr_t cellQ;
+    struct MPIDI_PIP_task_queue *compl_queue;
     void *src_first;
     void *dest;
-    int send_flag;
-    struct MPIDI_PIP_task *volatile next;
+    size_t data_sz;
+    struct MPIDI_PIP_task *next;
 } MPIDI_PIP_task_t;
 
-typedef struct {
+typedef struct MPIDI_PIP_task_queue {
     MPIDI_PIP_task_t *head;
-    MPIDI_PIP_task_t *volatile tail;
+    MPIDI_PIP_task_t *tail;
+    // MPID_Thread_mutex_t lock;
+    // int task_num;
 } MPIDI_PIP_task_queue_t;
 
 typedef struct {
     uint32_t num_local;
     uint32_t local_rank;
-    uint64_t *local_counter;
-    uint64_t *shm_counter;
+    uint64_t *local_send_counter;
+    uint64_t *shm_send_counter;
+    uint64_t *local_recv_counter;
+    uint64_t *shm_recv_counter;
     MPIDI_PIP_task_queue_t *local_task_queue;
     MPIDI_PIP_task_queue_t **shm_task_queue;
+    MPIDI_PIP_task_queue_t *local_compl_queue;
 } MPIDI_PIP_global_t;
 
 extern MPIDI_PIP_global_t pip_global;

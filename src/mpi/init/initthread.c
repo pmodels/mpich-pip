@@ -23,7 +23,7 @@
 #ifdef HAVE_USLEEP
 #include <unistd.h>
 #endif
-
+void MPIDI_PIP_init();
 /*
 === BEGIN_MPI_T_CVAR_INFO_BLOCK ===
 
@@ -652,6 +652,8 @@ int MPIR_Init_thread(int *argc, char ***argv, int required, int *provided)
      * atomically so that MPI_Initialized() etc. are thread safe */
     OPA_write_barrier();
     OPA_store_int(&MPIR_Process.mpich_state, MPICH_MPI_STATE__POST_INIT);
+
+    MPIDI_PIP_init();
     return mpi_errno;
 
   fn_fail:

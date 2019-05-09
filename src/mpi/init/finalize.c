@@ -159,6 +159,10 @@ int MPI_Finalize(void)
 
     MPIR_ERRTEST_INITIALIZED_ORDIE();
 
+    if (MPIR_Process.comm_world->node_comm) {
+        MPIR_Errflag_t errflag = MPIR_ERR_NONE;
+        MPIR_Barrier(MPIR_Process.comm_world->node_comm, &errflag);
+    }
 #ifdef HAVE_HWLOC
     hwloc_topology_destroy(MPIR_Process.hwloc_topology);
     hwloc_bitmap_free(MPIR_Process.bindset);

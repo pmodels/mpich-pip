@@ -306,6 +306,64 @@ MPL_STATIC_INLINE_PREFIX MPIR_Request *MPIR_Request_create_complete(MPIR_Request
     return req;
 }
 
+static inline void MPIR_Request_objmem_free(MPIR_Object_alloc_t * objmem, MPIR_Request * req)
+{
+    int inuse;
+
+    MPIR_Request_release_ref(req, &inuse);
+
+    /* inform the device that we are decrementing the ref-count on
+     * this request */
+    MPID_Request_free_hook(req);
+
+#ifdef MPICH_THREAD_USE_MDTA
+    /* We signal the possible waiter to complete this request. */
+    if (req->sync) {
+        MPIR_Thread_sync_signal(req->sync, 0);
+        req->sync = NULL;
+    }
+#endif
+
+    if (inuse == 0) {
+        MPL_DBG_MSG_P(MPIR_DBG_REQUEST, VERBOSE, "freeing request, handle=0x%08x", req->handle);
+
+#ifdef MPICH_DBG_OUTPUT
+        if (HANDLE_GET_MPI_KIND(req->handle) != MPIR_REQUEST) {
+            int mpi_errno = MPIR_Err_create_code(MPI_SUCCESS, MPIR_ERR_FATAL,
+                                                 FCNAME, __LINE__, MPI_ERR_OTHER,
+                                                 "**invalid_handle", "**invalid_handle %d",
+                                                 req->handle);
+            MPID_Abort(MPIR_Process.comm_world, mpi_errno, -1, NULL);
+        }
+
+        if (req->ref_count != 0) {
+            int mpi_errno = MPIR_Err_create_code(MPI_SUCCESS, MPIR_ERR_FATAL,
+                                                 FCNAME, __LINE__, MPI_ERR_OTHER,
+                                                 "**invalid_refcount", "**invalid_refcount %d",
+                                                 req->ref_count);
+            MPID_Abort(MPIR_Process.comm_world, mpi_errno, -1, NULL);
+        }
+#endif
+
+        /* FIXME: We need a better way to handle these so that we do
+         * not always need to initialize these fields and check them
+         * when we destroy a request */
+        /* FIXME: We need a way to call these routines ONLY when the
+         * related ref count has become zero. */
+        if (req->comm != NULL) {
+            MPIR_Comm_release(req->comm);
+        }
+
+        if (req->kind == MPIR_REQUEST_KIND__GREQUEST && req->u.ureq.greq_fns != NULL) {
+            MPL_free(req->u.ureq.greq_fns);
+        }
+
+        MPID_Request_destroy_hook(req);
+
+        MPIR_Handle_obj_free(objmem, req);
+    }
+}
+
 static inline void MPIR_Request_free(MPIR_Request * req)
 {
     int inuse;

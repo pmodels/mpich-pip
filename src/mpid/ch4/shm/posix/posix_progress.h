@@ -254,12 +254,15 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_recv(int blocking, int *comple
                     } else {
                         req->status.MPI_SOURCE = sreq->status.MPI_SOURCE;
                         req->status.MPI_TAG = sreq->status.MPI_TAG;
+                        MPIDI_POSIX_REQUEST(sreq)->pending = NULL;
+                        MPIDI_POSIX_REQUEST_DEQUEUE(&sreq, prev_sreq, MPIDI_POSIX_recvq_unexpected);
                     }
                     MPIDI_POSIX_REQUEST_DEQUEUE(&req, prev_req, MPIDI_POSIX_recvq_posted);
                     // if (MPIDI_POSIX_mem_region.local_rank){
                     //     printf("rank %d - fflush task, task# %d, compl# %d\n", MPIDI_POSIX_mem_region.local_rank, pip_global.local_task_queue->task_num, pip_global.local_compl_queue->task_num);
                     // }
-                    MPIDI_PIP_fflush_task();
+                    MPIDI_PIP_fflush_task();   
+                    goto fn_exit;
                 }
 
                 if (!in_cell) {

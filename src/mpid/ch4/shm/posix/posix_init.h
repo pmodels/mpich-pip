@@ -31,7 +31,7 @@ void MPIDI_PIP_init()
     uint64_t *task_queue_addr;
     MPIR_Errflag_t errflag = MPIR_ERR_NONE;
     MPIDI_PIP_task_t *task_dummy, *compl_dummy;
-    MPIR_CHKPMEM_DECL(7);
+    MPIR_CHKPMEM_DECL(9);
 
     pip_global.num_local = num_local = MPIDI_POSIX_mem_region.num_local;
     pip_global.local_rank = local_rank = MPIDI_POSIX_mem_region.local_rank;
@@ -56,9 +56,21 @@ void MPIDI_PIP_init()
                         num_local * sizeof(MPIDI_PIP_task_queue_t *), mpi_errno, "shm_task_queue",
                         MPL_MEM_SHM);
 
+    pip_global.copy_size = 0;
+    pip_global.try_steal = 0;
+    pip_global.suc_steal = 0;
+    // pip_global.task_num = 0;
 
-    // MPID_Thread_mutex_create(&pip_global.local_task_queue->lock, &err);
-    // pip_global.local_task_queue->task_num = 0;
+    MPIR_CHKPMEM_MALLOC(pip_global.esteal_done, int *,
+                        sizeof(int) * num_local, mpi_errno, "esteal_done", MPL_MEM_SHM);
+    MPIR_CHKPMEM_MALLOC(pip_global.esteal_try, int *,
+                        sizeof(int) * num_local, mpi_errno, "esteal_try", MPL_MEM_SHM);
+
+    memset(pip_global.esteal_done, 0, num_local * sizeof(int));
+    memset(pip_global.esteal_try, 0, num_local * sizeof(int));
+
+    MPID_Thread_mutex_create(&pip_global.local_task_queue->lock, &err);
+    pip_global.local_task_queue->task_num = 0;
     task_dummy = (MPIDI_PIP_task_t *) MPIR_Handle_obj_alloc(&MPIDI_Task_mem);
     task_dummy->next = NULL;
     pip_global.local_task_queue->head = pip_global.local_task_queue->tail = task_dummy;
@@ -67,8 +79,8 @@ void MPIDI_PIP_init()
                         sizeof(MPIDI_PIP_task_queue_t), mpi_errno, "local_compl_queue",
                         MPL_MEM_SHM);
 
-    // MPID_Thread_mutex_create(&pip_global.local_compl_queue->lock, &err);
-    // pip_global.local_compl_queue->task_num = 0;
+    MPID_Thread_mutex_create(&pip_global.local_compl_queue->lock, &err);
+    pip_global.local_compl_queue->task_num = 0;
     compl_dummy = (MPIDI_PIP_task_t *) MPIR_Handle_obj_alloc(&MPIDI_Task_mem);
     compl_dummy->next = NULL;
     pip_global.local_compl_queue->head = pip_global.local_compl_queue->tail = compl_dummy;
@@ -343,7 +355,18 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_mpi_finalize_hook(void)
     int mpi_errno = MPI_SUCCESS;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_POSIX_FINALIZE);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_POSIX_FINALIZE);
+    // char results[1024];
+    // char buffer[128];
+    // sprintf(results, "rank %d - copy size %ld", pip_global.local_rank, pip_global.copy_size);
+    // fflush(stdout);
+    // int i;
+    // for (i = 0; i < pip_global.num_local; i++) {
+    //     sprintf(buffer, ", (%d, %d, %d)", i, pip_global.esteal_try[i], pip_global.esteal_done[i]);
+    //     strcat(results, buffer);
+    // }
 
+    // printf("%s\n", results);
+    // fflush(stdout);
     /* local barrier */
     mpi_errno = MPIDU_shm_barrier(MPIDI_POSIX_mem_region.barrier, MPIDI_POSIX_mem_region.num_local);
 

@@ -257,6 +257,7 @@ static inline void MPIDI_POSIX_queue_enqueue(MPIDI_POSIX_queue_ptr_t qhead,
 {
     int err = 0;
     MPIDI_POSIX_cell_rel_ptr_t r_prev;
+    element->next = NULL;
     MPIDI_POSIX_cell_rel_ptr_t r_element = MPIDI_POSIX_ABS_TO_REL(element);
 
     MPIDI_POSIX_queue_mutex_lock(&qhead->lock, &err);

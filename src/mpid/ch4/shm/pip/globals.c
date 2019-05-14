@@ -13,7 +13,7 @@
 
 MPIDI_PIP_global_t pip_global;
 
-MPIR_Request MPIDI_Task_direct[MPIDI_TASK_PREALLOC] = { {0}
+MPIDI_PIP_task_t MPIDI_Task_direct[MPIDI_TASK_PREALLOC] = { {0}
 };
 
 MPIR_Object_alloc_t MPIDI_Task_mem = {

@@ -14,7 +14,7 @@
 #include <mpidimpl.h>
 #include <../posix/posix_datatypes.h>
 
-#define MPIDI_TASK_PREALLOC 64
+#define MPIDI_TASK_PREALLOC 8
 
 struct MPIDI_PIP_task_queue;
 
@@ -44,8 +44,8 @@ typedef struct MPIDI_PIP_task {
 typedef struct MPIDI_PIP_task_queue {
     MPIDI_PIP_task_t *head;
     MPIDI_PIP_task_t *tail;
-    // MPID_Thread_mutex_t lock;
-    // int task_num;
+    MPID_Thread_mutex_t lock;
+    int task_num;
 } MPIDI_PIP_task_queue_t;
 
 typedef struct {
@@ -58,6 +58,12 @@ typedef struct {
     MPIDI_PIP_task_queue_t *local_task_queue;
     MPIDI_PIP_task_queue_t **shm_task_queue;
     MPIDI_PIP_task_queue_t *local_compl_queue;
+    uint64_t copy_size;
+    uint64_t try_steal;
+    uint64_t suc_steal;
+
+    int *esteal_done;
+    int *esteal_try;
 } MPIDI_PIP_global_t;
 
 extern MPIDI_PIP_global_t pip_global;

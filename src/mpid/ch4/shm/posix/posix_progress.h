@@ -274,10 +274,10 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_recv(int blocking, int *comple
         /* unexpected message, no posted matching req */
         if (in_cell) {
             /* free the cell, move to unexpected queue */
-            if(MPIDI_POSIX_mem_region.local_rank){
+            // if(MPIDI_POSIX_mem_region.local_rank){
             printf("rank %d - unexpected message, data_sz %ld\n", MPIDI_POSIX_mem_region.local_rank, data_sz);
             fflush(stdout);   
-            }
+            // }
             MPIR_Request *rreq;
             MPIDI_POSIX_REQUEST_CREATE_RREQ(rreq);
             MPIR_Object_set_ref(rreq, 1);

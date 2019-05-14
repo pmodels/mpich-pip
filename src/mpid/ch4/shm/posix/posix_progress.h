@@ -231,10 +231,13 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_recv(int blocking, int *comple
                     task->cur_task_id = pip_global.shm_recv_counter + src_local;
                     task->compl_queue = pip_global.local_compl_queue;
                     MPIDI_PIP_Task_safe_enqueue(pip_global.local_task_queue, task);
-                    printf("rank %d - enqueue receive data %ld, task %p, src_local %d, task# %d\n",
+                    if(MPIDI_POSIX_mem_region.local_rank){
+                        printf("rank %d - enqueue receive data %ld, task %p, src_local %d, task# %d\n",
                            MPIDI_POSIX_mem_region.local_rank, data_sz, task, src_local,
                            pip_global.local_task_queue->task_num);
                     fflush(stdout);
+                    }
+                    
                 }
                 MPIDI_POSIX_REQUEST(req)->data_sz -= data_sz;
                 MPIDI_POSIX_REQUEST(req)->user_buf += data_sz;
@@ -251,6 +254,9 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_recv(int blocking, int *comple
                         req->status.MPI_TAG = sreq->status.MPI_TAG;
                     }
                     MPIDI_POSIX_REQUEST_DEQUEUE(&req, prev_req, MPIDI_POSIX_recvq_posted);
+                    if(MPIDI_POSIX_mem_region.local_rank){
+                        printf("rank %d - fflush task, task# %d", MPIDI_POSIX_mem_region.local_rank, pip_global.local_task_queue->task_num);
+                    }
                     MPIDI_PIP_fflush_task();
                 }
 
@@ -268,8 +274,10 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_recv(int blocking, int *comple
         /* unexpected message, no posted matching req */
         if (in_cell) {
             /* free the cell, move to unexpected queue */
+            if(MPIDI_POSIX_mem_region.local_rank){
             printf("rank %d - unexpected message, data_sz %ld\n", MPIDI_POSIX_mem_region.local_rank, data_sz);
-            fflush(stdout);
+            fflush(stdout);   
+            }
             MPIR_Request *rreq;
             MPIDI_POSIX_REQUEST_CREATE_RREQ(rreq);
             MPIR_Object_set_ref(rreq, 1);
@@ -448,7 +456,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_send(int blocking, int *comple
             MPIDI_PIP_Task_safe_enqueue(pip_global.local_task_queue, task);
             /* dequeue sreq */
             MPIDI_POSIX_REQUEST_DEQUEUE(&sreq, prev_sreq, MPIDI_POSIX_sendq);
-            // MPIDI_PIP_fflush_task();
+            MPIDI_PIP_fflush_task();
         } else {
             task = (MPIDI_PIP_task_t *) MPIR_Handle_obj_alloc(&MPIDI_Task_mem);
             task->req = sreq;

@@ -151,7 +151,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_Compl_task_safe_dequeue(MPIDI_PIP_task_qu
                 task_queue->head->next = old_head->next;
                 if (old_head->next == NULL)
                     task_queue->tail = task_queue->head;
-
+                task_queue->task_num--;
             }
             MPID_Thread_mutex_unlock(&task_queue->lock, &err);
         }
@@ -238,7 +238,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_do_task_compl(MPIDI_PIP_task_t * task)
 MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_fflush_compl_task()
 {
     MPIDI_PIP_task_t *task;
-    while (pip_global.local_compl_queue->head->next) {
+    while (pip_global.local_compl_queue->task_num) {
         MPIDI_PIP_Compl_task_safe_dequeue(pip_global.local_compl_queue, &task);
         if (task) {
             // if (MPIDI_POSIX_mem_region.local_rank == 1)
@@ -323,14 +323,15 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_do_task_copy(MPIDI_PIP_task_t * task)
 MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_fflush_task()
 {
     MPIDI_PIP_task_t *task;
-    while (pip_global.local_task_queue->head->next) {
+    while (pip_global.local_task_queue->task_num) {
         MPIDI_PIP_Task_safe_dequeue(pip_global.local_task_queue, &task);
         if (task) {
             /* find my own task */
             MPIDI_PIP_do_task_copy(task);
             MPIDI_PIP_Compl_task_safe_dequeue(pip_global.local_compl_queue, &task);
             MPIDI_PIP_do_task_compl(task);
-        }
+        }else
+            break;
     }
     return;
 }

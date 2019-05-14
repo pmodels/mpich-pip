@@ -63,6 +63,7 @@ typedef struct {
     uint64_t suc_steal;
 
     int *esteal_done;
+    int recvQ_empty;
     int *esteal_try;
 } MPIDI_PIP_global_t;
 

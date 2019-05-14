@@ -110,9 +110,10 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_Compl_task_safe_enqueue(MPIDI_PIP_task_qu
 
     task->next = NULL;
     MPID_Thread_mutex_lock(&task_queue->lock, &err);
+    task_queue->task_num++;
+    *task->cur_task_id = task->task_id + 1;
     task_queue->tail->next = task;
     task_queue->tail = task;
-    task_queue->task_num++;
     MPID_Thread_mutex_unlock(&task_queue->lock, &err);
 
     // if (err)
@@ -277,8 +278,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_do_task_copy(MPIDI_PIP_task_t * task)
             /* non-contig */
         } else {
             /* contig */
-            // printf("rank %d - send data size %ld, task %p\n", pip_global.local_rank,
-            //        task->data_sz, task);
+            // printf("rank %d - send data size %ld, task %p, src %p, dest %p\n", pip_global.local_rank,
+            //        task->data_sz, task, task->src_first, task->dest);
             // fflush(stdout);
             MPIR_Memcpy(task->dest, task->src_first, task->data_sz);
         }
@@ -288,7 +289,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_do_task_copy(MPIDI_PIP_task_t * task)
 
     while (task_id != *task->cur_task_id);
     MPIDI_PIP_Compl_task_safe_enqueue(task->compl_queue, task);
-    *task->cur_task_id = task_id + 1;
+    // *task->cur_task_id = task_id + 1;
 
 
     // if (cell->pkt.mpich.type != MPIDI_POSIX_TYPELMT) {

@@ -286,7 +286,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_do_task_copy(MPIDI_PIP_task_t * task)
 			// fflush(stdout);
 			MPIR_Memcpy(task->dest, task->src_first, task->data_sz);
 		}
-		// pip_global.copy_size += task->data_sz;
+		pip_global.copy_size += task->data_sz;
 	}
 	// task->next = NULL;
 
@@ -350,11 +350,11 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_steal_task()
 	if (victim != pip_global.local_rank) {
 #ifdef MPI_PIP_SHM_TASK_STEAL
 		MPIDI_PIP_Task_safe_dequeue(pip_global.shm_task_queue[victim], &task);
-		// pip_global.try_steal++;
-		// pip_global.esteal_try[victim]++;
+		pip_global.try_steal++;
+		pip_global.esteal_try[victim]++;
 		if (task) {
-			// pip_global.esteal_done[victim]++;
-			// pip_global.suc_steal++;
+			pip_global.esteal_done[victim]++;
+			pip_global.suc_steal++;
 			// printf
 			//     ("Process %d steal task from victim %d, task %p, data size %ld, remaining task# %d, queue %p\n",
 			//      pip_global.local_rank, victim, task, task->data_sz,

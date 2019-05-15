@@ -280,9 +280,9 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_recv(int blocking, int *comple
         if (in_cell) {
             /* free the cell, move to unexpected queue */
             // if (MPIDI_POSIX_mem_region.local_rank){
-            printf("rank %d - unexpected message, data_sz %ld\n", MPIDI_POSIX_mem_region.local_rank,
-                   data_sz);
-            fflush(stdout);
+            // printf("rank %d - unexpected message, data_sz %ld\n", MPIDI_POSIX_mem_region.local_rank,
+            //        data_sz);
+            // fflush(stdout);
             // }
             MPIR_Request *rreq;
             MPIDI_POSIX_REQUEST_CREATE_RREQ(rreq);
@@ -365,7 +365,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_send(int blocking, int *comple
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_POSIX_DO_PROGRESS_SEND);
 
     /* try to send via freeq */
-    if (pip_global.local_task_queue->task_num >= 8) {
+    if (pip_global.local_task_queue->task_num >= 36) {
         // if (MPIDI_POSIX_mem_region.local_rank == 0) {
         //     printf("rank %d - sender is flushing task, queue size %d\n",
         //            MPIDI_POSIX_mem_region.local_rank, pip_global.local_task_queue->task_num);

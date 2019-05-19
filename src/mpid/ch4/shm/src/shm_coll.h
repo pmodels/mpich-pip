@@ -251,39 +251,36 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_SHM_mpi_reduce(const void *sendbuf, void *rec
 #ifdef SHMEM_MODULE_PIP
 	// extern long long *data_addr_array0;
 	// extern long long *data_addr_array1;
-	if (comm_ptr->socket_comm != NULL && comm_ptr->socket_comm->shared_addr != NULL) {
+    size_t data_sz = MPIR_Datatype_get_basic_size(datatype) * count;
+	if (comm_ptr != NULL && data_sz >= 256) {
 		// ret = MPIDI_PIP_mpi_reduce(sendbuf, recvbuf, count, datatype, op, root, comm_ptr, errflag, algo_parameters_container);
 		void* rank0_tmp_buffer = NULL;
-
-		if (root != 0) {
-			if (comm_ptr->socket_comm->rank == 0)
+		if (comm_ptr->rank == 0) {
+			if (root != 0) {
 				rank0_tmp_buffer = MPL_malloc(MPIR_Datatype_get_basic_size(datatype) * count, MPL_MEM_OTHER);
-		} else {
-			if (comm_ptr->rank != 0 && comm_ptr->socket_comm->rank == 0)
-				rank0_tmp_buffer = MPL_malloc(MPIR_Datatype_get_basic_size(datatype) * count, MPL_MEM_OTHER);
-			//rank0_tmp_buffer = comm_ptr->tmp_buffer[1];
-			// rank0_tmp_buffer = global_buffer;
-			else
+			} else {
 				rank0_tmp_buffer = recvbuf;
+			}
 		}
+
 		// printf("First stage pip reduce rank %d\n", comm_ptr->socket_comm->rank);
 		// fflush(stdout);
-		ret = MPIDI_PIP_mpi_reduce(sendbuf, rank0_tmp_buffer, count, datatype, op, 0, comm_ptr->socket_comm, errflag, algo_parameters_container);
+		ret = MPIDI_PIP_mpi_reduce(sendbuf, rank0_tmp_buffer, count, datatype, op, 0, comm_ptr, errflag, algo_parameters_container);
 		if (ret != MPI_SUCCESS)
 			goto fn_exit;
 
-		if (comm_ptr->socket_roots_comm != NULL) {
-			// printf("Second stage pip reduce rank %d\n", comm_ptr->socket_roots_comm->rank);
-			// fflush(stdout);
-			// printf("Inter socket comm, my rank %d\n", comm_ptr->rank);
-			// fflush(stdout);
-			if (comm_ptr->socket_roots_comm->rank == 0)
-				ret = MPIDI_PIP_mpi_tree_based_reduce(MPI_IN_PLACE, rank0_tmp_buffer, count, datatype, op, 0, comm_ptr->socket_roots_comm, errflag, algo_parameters_container);
-			else
-				ret = MPIDI_PIP_mpi_tree_based_reduce(rank0_tmp_buffer, NULL, count, datatype, op, 0, comm_ptr->socket_roots_comm, errflag, algo_parameters_container);
-			if (ret != MPI_SUCCESS)
-				goto fn_exit;
-		}
+		// if (comm_ptr->socket_roots_comm != NULL) {
+		//  // printf("Second stage pip reduce rank %d\n", comm_ptr->socket_roots_comm->rank);
+		//  // fflush(stdout);
+		//  // printf("Inter socket comm, my rank %d\n", comm_ptr->rank);
+		//  // fflush(stdout);
+		//  if (comm_ptr->socket_roots_comm->rank == 0)
+		//      ret = MPIDI_PIP_mpi_tree_based_reduce(MPI_IN_PLACE, rank0_tmp_buffer, count, datatype, op, 0, comm_ptr->socket_roots_comm, errflag, algo_parameters_container);
+		//  else
+		//      ret = MPIDI_PIP_mpi_tree_based_reduce(rank0_tmp_buffer, NULL, count, datatype, op, 0, comm_ptr->socket_roots_comm, errflag, algo_parameters_container);
+		//  if (ret != MPI_SUCCESS)
+		//      goto fn_exit;
+		// }
 
 		if (root != 0) {
 			MPIR_Request *request = NULL;
@@ -292,29 +289,28 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_SHM_mpi_reduce(const void *sendbuf, void *rec
 				if (ret != MPI_SUCCESS)
 					goto fn_exit;
 
+				MPL_free(rank0_tmp_buffer);
 			} else if (comm_ptr->rank == root) {
 				ret = MPIDI_PIP_mpi_recv(recvbuf, count, datatype, 0, 0, comm_ptr, MPIR_CONTEXT_INTRA_COLL,
 				                         MPI_STATUS_IGNORE, &request);
 				if (ret != MPI_SUCCESS)
 					goto fn_exit;
 			}
-			if (comm_ptr->socket_comm->rank == 0)
-				MPL_free(rank0_tmp_buffer);
-		} else {
-			if (comm_ptr->rank != 0 && comm_ptr->socket_comm->rank == 0)
-				MPL_free(rank0_tmp_buffer);
 		}
+		//       else {
+		//  if (comm_ptr->rank != 0 && comm_ptr->socket_comm->rank == 0)
+		//      MPL_free(rank0_tmp_buffer);
+		// }
+	} else {
+		ret = MPIDI_POSIX_mpi_reduce(sendbuf, recvbuf, count, datatype, op, root, comm_ptr, errflag, algo_parameters_container);
+		if (ret != MPI_SUCCESS)
+			goto fn_exit;
 	}
-	// else {
-	// 	ret = MPIDI_PIP_mpi_reduce(sendbuf, recvbuf, count, datatype, op, root, comm_ptr, errflag, algo_parameters_container);
-	// 	if (ret != MPI_SUCCESS)
-	// 		goto fn_exit;
-	// }
-	else
-#endif
+#else
 		ret =
 		    MPIDI_POSIX_mpi_reduce(sendbuf, recvbuf, count, datatype, op, root, comm_ptr, errflag,
 		                           algo_parameters_container);
+#endif
 	// printf("Rank %d call posix reduce\n", comm_ptr->rank);
 	// fflush(stdout);
 

@@ -12,9 +12,9 @@
  * excludes the implied warranties of merchantability, fitness for a
  * particular purpose and non-infringement.
  */
-#define _GNU_SOURCE
-#include <sched.h>
-#include <numa.h>
+// #define _GNU_SOURCE
+// #include <sched.h>
+// #include <numa.h>
 #include "mpiimpl.h"
 #include "mpir_info.h"
 #include "datatype.h"
@@ -25,7 +25,7 @@
 #ifdef HAVE_USLEEP
 #include <unistd.h>
 #endif
-#include <pip.h>
+// #include <pip.h>
 #ifdef PIP_PROFILE_MISS
 #include <papi.h>
 #endif
@@ -353,9 +353,9 @@ int MPIR_Init_thread(int *argc, char ***argv, int required, int *provided)
 	MPIR_Info *info_ptr;
 
 	/* Get socket information */
-	int cpu = sched_getcpu();
-	int node = numa_node_of_cpu(cpu);
-	MPIR_Process.socket_id = node;
+	// int cpu = sched_getcpu();
+	// int node = numa_node_of_cpu(cpu);
+	// MPIR_Process.socket_id = node;
 
 #ifdef PIP_PROFILE_MISS
 	int retval;
@@ -830,15 +830,15 @@ fn_fail:
 }
 
 /* Only deal with INTRA comm! */
-
+extern long long *shared_addr;
 void MPIR_create_shared_buffer(MPIR_Comm *comm)
 {
 	int rank = comm->rank;
 	int size = comm->local_size;
 	MPIR_Errflag_t errflag = MPIR_ERR_NONE;
 	if (rank == 0) {
-		comm->shared_addr = (long long*) MPL_malloc(sizeof(long long) * size, MPL_MEM_OTHER);
-		MPIR_Bcast(&comm->shared_addr, 1, MPI_LONG_LONG, 0, comm, &errflag);
+		shared_addr = (long long*) MPL_malloc(sizeof(long long) * size, MPL_MEM_OTHER);
+		MPIR_Bcast(&shared_addr, 1, MPI_LONG_LONG, 0, comm, &errflag);
 		// for (int i = 0; i < 3; ++i) {
 		// 	comm->barrier_flags[i] = (char*) MPL_malloc(sizeof(char) * size, MPL_MEM_OTHER);
 		// 	memset(comm->barrier_flags[i], 0xff, sizeof(char) * size);
@@ -846,7 +846,7 @@ void MPIR_create_shared_buffer(MPIR_Comm *comm)
 		// MPIR_Bcast(comm->barrier_flags, 3, MPI_LONG_LONG, 0, comm, &errflag);
 
 	} else {
-		MPIR_Bcast(&comm->shared_addr, 1, MPI_LONG_LONG, 0, comm, &errflag);
+		MPIR_Bcast(&shared_addr, 1, MPI_LONG_LONG, 0, comm, &errflag);
 		// MPIR_Bcast(comm->barrier_flags, 3, MPI_LONG_LONG, 0, comm, &errflag);
 	}
 	// comm->tmp_buffer[0] = MPL_malloc(8 * 1024 * 1024, MPL_MEM_OTHER);
@@ -861,8 +861,8 @@ void MPIR_create_shared_buffer(MPIR_Comm *comm)
 void socket_comm_init()
 {
 	MPIR_Comm *comm_ptr = MPIR_Process.comm_world->node_comm;
-	MPIR_Comm *intra_socket_comm = NULL;
-	MPIR_Comm *inter_socket_comm = NULL;
+	// MPIR_Comm *intra_socket_comm = NULL;
+	// MPIR_Comm *inter_socket_comm = NULL;
 	// global_buffer = malloc(8 * 1024 * 1024);
 	// memset(global_buffer, 0, 8 * 1024 * 1024);
 	// int myid, npips;
@@ -893,28 +893,28 @@ void socket_comm_init()
 	// comm_ptr->pip_id = myid;
 	// MPIR_create_shared_addr(MPIR_Process.comm_world);
 	// MPIR_create_shared_buffer(comm_ptr);
-	MPIR_Comm_split_impl(MPIR_Process.comm_world, MPIR_Process.socket_id, 0, &intra_socket_comm);
+	// MPIR_Comm_split_impl(MPIR_Process.comm_world, MPIR_Process.socket_id, 0, &intra_socket_comm);
 	// intra_socket_comm->shared_addr = NULL;
-	comm_ptr->socket_comm = intra_socket_comm;
-	MPIR_create_shared_buffer(intra_socket_comm);
+	// comm_ptr->socket_comm = intra_socket_comm;
+	MPIR_create_shared_buffer(comm_ptr);
 
 	// printf("MPIR_create_shared_addr comm_ptr->socket_comm %p rank %d, \n", intra_socket_comm, MPIR_Process.comm_world->rank);
 	// fflush(stdout);
 	
 	// if(MPIR_Process.socket_id == 0)
 
-	if (comm_ptr->local_size != intra_socket_comm->local_size) {
-		if (intra_socket_comm->rank == 0) {
-			// printf("Intersplit rank %d, newrank %d\n", comm_ptr->rank, intra_socket_comm->rank);
-			// fflush(stdout);
-			MPIR_Comm_split_impl(comm_ptr, 0, 0, &inter_socket_comm);
-			comm_ptr->socket_roots_comm = inter_socket_comm;
-			// inter_socket_comm = NULL;
-			// MPIR_create_shared_buffer(comm_ptr->socket_roots_comm);
-		} else {
-			MPIR_Comm_split_impl(comm_ptr, 1, 0, &inter_socket_comm);
-		}
-	}
+	// if (comm_ptr->local_size != intra_socket_comm->local_size) {
+	// 	if (intra_socket_comm->rank == 0) {
+	// 		// printf("Intersplit rank %d, newrank %d\n", comm_ptr->rank, intra_socket_comm->rank);
+	// 		// fflush(stdout);
+	// 		MPIR_Comm_split_impl(comm_ptr, 0, 0, &inter_socket_comm);
+	// 		comm_ptr->socket_roots_comm = inter_socket_comm;
+	// 		// inter_socket_comm = NULL;
+	// 		// MPIR_create_shared_buffer(comm_ptr->socket_roots_comm);
+	// 	} else {
+	// 		MPIR_Comm_split_impl(comm_ptr, 1, 0, &inter_socket_comm);
+	// 	}
+	// }
 
 	// MPIR_create_shared_buffer(comm_ptr->socket_comm);
 	// printf("rank %d, comm_ptr->socket_comm->shared_addr %p\n", MPIR_Process.comm_world->rank, comm_ptr->socket_comm->shared_addr);

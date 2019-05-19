@@ -2,7 +2,7 @@
 #define PIP_REDUCE_INCLUDED
 
 //#include "pip_barrier.h"
-
+extern long long *shared_addr;
 void MPIR_create_shared_addr(MPIR_Comm *comm);
 #undef FCNAME
 #define FCNAME MPL_QUOTE(MPIDI_PIP_mpi_reduce)
@@ -69,7 +69,7 @@ static inline int MPIDI_PIP_mpi_reduce(const void *sendbuf, void *recvbuf, int c
 	// printf("Reduce: Begin assign addr rank %d, shared_addr %p, comm %p\n", myrank, comm->shared_addr, comm);
 	// fflush(stdout);
 	// long long *data_addr_array = data_array;
-	comm->shared_addr[myrank] = data_addr;
+	shared_addr[myrank] = data_addr;
 	// printf("Reduce: complete assign addr rank %d, comm %p\n", myrank, comm);
 	// fflush(stdout);
 	// printf("myrank %d, before barrier\n", myrank);
@@ -82,7 +82,7 @@ static inline int MPIDI_PIP_mpi_reduce(const void *sendbuf, void *recvbuf, int c
 	// COLL_SHMEM_MODULE = POSIX_MODULE;
 
 	// COLL_SHMEM_MODULE = PIP_MODULE;
-	void *outdest = (void*) ((char*) comm->shared_addr[root] + ssize);
+	void *outdest = (void*) ((char*) shared_addr[root] + ssize);
 
 	// printf("Reduce: ready copy rank %d\n", myrank);
 	// fflush(stdout);
@@ -113,7 +113,7 @@ static inline int MPIDI_PIP_mpi_reduce(const void *sendbuf, void *recvbuf, int c
 			Perform reduce computation
 			The cache optimization can be applied in the future
 		*/
-		src = (void*) comm->shared_addr[i];
+		src = (void*) shared_addr[i];
 		void *insrc = (void*) ((char*) src + ssize);
 
 		MPIR_Reduce_local(insrc, outdest, len, datatype, op);

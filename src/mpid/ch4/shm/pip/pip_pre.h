@@ -14,7 +14,7 @@
 #include <mpidimpl.h>
 #include <../posix/posix_datatypes.h>
 
-#define MPIDI_TASK_PREALLOC 8
+#define MPIDI_TASK_PREALLOC 64
 
 struct MPIDI_PIP_task_queue;
 
@@ -22,19 +22,18 @@ struct MPIDI_PIP_task_queue;
 typedef struct MPIDI_PIP_task {
     MPIR_OBJECT_HEADER;
     MPIR_Request *req;
-    union {
-        MPIDI_POSIX_cell_ptr_t cell;
-        MPIR_Request *unexp_req;
-    };
+    // union {
+    MPIDI_POSIX_cell_ptr_t cell;
+    //     MPIR_Request *unexp_req;
+    // };
 
     volatile uint64_t *cur_task_id;
     uint64_t task_id;
-    uint64_t in_cell;
-    int type;
-    int send_flag;
-    int *completion_count;
+    // int send_flag;
+    int compl_flag;
+    // int *completion_count;
     MPIDI_POSIX_queue_ptr_t cellQ;
-    struct MPIDI_PIP_task_queue *compl_queue;
+    // struct MPIDI_PIP_task_queue *compl_queue;
     void *src_first;
     void *dest;
     size_t data_sz;
@@ -45,7 +44,7 @@ typedef struct MPIDI_PIP_task_queue {
     MPIDI_PIP_task_t *head;
     MPIDI_PIP_task_t *tail;
     MPID_Thread_mutex_t lock;
-    int task_num;
+    // int task_num;
 } MPIDI_PIP_task_queue_t;
 
 typedef struct {
@@ -65,6 +64,7 @@ typedef struct {
     int *esteal_done;
     int recvQ_empty;
     int *esteal_try;
+    int recv_empty;
 } MPIDI_PIP_global_t;
 
 extern MPIDI_PIP_global_t pip_global;

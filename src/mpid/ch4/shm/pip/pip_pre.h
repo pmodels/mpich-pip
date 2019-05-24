@@ -27,17 +27,19 @@ typedef struct MPIDI_PIP_task {
     //     MPIR_Request *unexp_req;
     // };
 
-    volatile uint64_t *cur_task_id;
-    uint64_t task_id;
+    // volatile uint64_t *cur_task_id;
+    // uint64_t task_id;
     // int send_flag;
     int compl_flag;
     // int *completion_count;
-    MPIDI_POSIX_queue_ptr_t cellQ;
+    // MPIDI_POSIX_queue_ptr_t cellQ;
+    MPIDI_POSIX_queue_ptr_t cell_queue;
     // struct MPIDI_PIP_task_queue *compl_queue;
     void *src_first;
     void *dest;
     size_t data_sz;
     struct MPIDI_PIP_task *next;
+    struct MPIDI_PIP_task *compl_next;
 } MPIDI_PIP_task_t;
 
 typedef struct MPIDI_PIP_task_queue {
@@ -56,7 +58,8 @@ typedef struct {
     uint64_t *shm_recv_counter;
     MPIDI_PIP_task_queue_t *local_task_queue;
     MPIDI_PIP_task_queue_t **shm_task_queue;
-    MPIDI_PIP_task_queue_t *local_compl_queue;
+    MPIDI_PIP_task_queue_t *local_recv_compl_queue;
+    MPIDI_PIP_task_queue_t *local_send_compl_queue;
     uint64_t copy_size;
     uint64_t try_steal;
     uint64_t suc_steal;

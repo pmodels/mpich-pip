@@ -114,7 +114,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_Compl_task_enqueue(MPIDI_PIP_task_queue_t
 
     // task->next = NULL;
     if (task_queue->tail) {
-        task_queue->tail->next = task;
+        task_queue->tail->compl_next = task;
         task_queue->tail = task;
     } else {
         task_queue->head = task_queue->tail = task;
@@ -155,7 +155,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_Compl_task_delete_head(MPIDI_PIP_task_que
     //         task_queue->task_num--;
     //     } else {
     if (old_head) {
-        task_queue->head = old_head->next;
+        task_queue->head = old_head->compl_next;
         if (task_queue->head == NULL)
             task_queue->tail = NULL;
     }
@@ -205,13 +205,14 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_Compl_task_delete_head(MPIDI_PIP_task_que
 
 #undef FCNAME
 #define FCNAME MPL_QUOTE(MPIDI_PIP_fflush_compl_task)
-MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_fflush_compl_task()
+MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_fflush_compl_task(MPIDI_PIP_task_queue_t * compl_queue)
 {
-    MPIDI_PIP_task_t *task = pip_global.local_compl_queue->head;
+    MPIDI_PIP_task_t *task = compl_queue->head;
     while (task && task->compl_flag) {
-        MPIDI_PIP_Compl_task_delete_head(pip_global.local_compl_queue);
+        MPIDI_PIP_Compl_task_delete_head(compl_queue);
+        MPIDI_POSIX_queue_enqueue(task->cell_queue, task->cell);
         MPIR_Handle_obj_free(&MPIDI_Task_mem, task);
-        task = pip_global.local_compl_queue->head;
+        task = compl_queue->head;
         // if (task) {
         //      // if (MPIDI_POSIX_mem_region.local_rank == 1)
         //      // printf("rank %d - complete task %p BEGIN\n", MPIDI_POSIX_mem_region.local_rank, task);
@@ -232,7 +233,7 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_fflush_compl_task()
 MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_do_task_copy(MPIDI_PIP_task_t * task)
 {
     int mpi_errno = MPI_SUCCESS;
-    int task_id = task->task_id;
+    // int task_id = task->task_id;
     // void *recv_buffer;
     MPIDI_POSIX_cell_ptr_t cell = task->cell;
     if (task->data_sz) {
@@ -257,9 +258,9 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_do_task_copy(MPIDI_PIP_task_t * task)
     }
     // task->next = NULL;
 
-    while (task_id != *task->cur_task_id);
-    MPIDI_POSIX_queue_enqueue(task->cellQ, cell);
-    *task->cur_task_id = task_id + 1;
+    // while (task_id != *task->cur_task_id);
+    // MPIDI_POSIX_queue_enqueue(task->cellQ, cell);
+    // *task->cur_task_id = task_id + 1;
     OPA_write_barrier();
     task->compl_flag = 1;
 

@@ -31,7 +31,7 @@ void MPIDI_PIP_init()
     uint64_t *task_queue_addr;
     MPIR_Errflag_t errflag = MPIR_ERR_NONE;
     // MPIDI_PIP_task_t *task_dummy, *compl_dummy;
-    MPIR_CHKPMEM_DECL(9);
+    MPIR_CHKPMEM_DECL(10);
 
     pip_global.num_local = num_local = MPIDI_POSIX_mem_region.num_local;
     pip_global.local_rank = local_rank = MPIDI_POSIX_mem_region.local_rank;
@@ -75,15 +75,25 @@ void MPIDI_PIP_init()
     // task_dummy->next = NULL;
     pip_global.local_task_queue->head = pip_global.local_task_queue->tail = NULL;
 
-    MPIR_CHKPMEM_MALLOC(pip_global.local_compl_queue, MPIDI_PIP_task_queue_t *,
-                        sizeof(MPIDI_PIP_task_queue_t), mpi_errno, "local_compl_queue",
+    MPIR_CHKPMEM_MALLOC(pip_global.local_recv_compl_queue, MPIDI_PIP_task_queue_t *,
+                        sizeof(MPIDI_PIP_task_queue_t), mpi_errno, "local_recv_compl_queue",
                         MPL_MEM_SHM);
 
-    MPID_Thread_mutex_create(&pip_global.local_compl_queue->lock, &err);
+    // MPID_Thread_mutex_create(&pip_global.local__recvcompl_queue->lock, &err);
     // pip_global.local_compl_queue->task_num = 0;
     // compl_dummy = (MPIDI_PIP_task_t *) MPIR_Handle_obj_alloc(&MPIDI_Task_mem);
     // compl_dummy->next = NULL;
-    pip_global.local_compl_queue->head = pip_global.local_compl_queue->tail = NULL;
+    pip_global.local_recv_compl_queue->head = pip_global.local_recv_compl_queue->tail = NULL;
+
+    MPIR_CHKPMEM_MALLOC(pip_global.local_send_compl_queue, MPIDI_PIP_task_queue_t *,
+                        sizeof(MPIDI_PIP_task_queue_t), mpi_errno, "local_send_compl_queue",
+                        MPL_MEM_SHM);
+
+    // MPID_Thread_mutex_create(&pip_global.local__recvcompl_queue->lock, &err);
+    // pip_global.local_compl_queue->task_num = 0;
+    // compl_dummy = (MPIDI_PIP_task_t *) MPIR_Handle_obj_alloc(&MPIDI_Task_mem);
+    // compl_dummy->next = NULL;
+    pip_global.local_send_compl_queue->head = pip_global.local_send_compl_queue->tail = NULL;
 
     // printf("rank %d - I am here node_comm %p\n", local_rank, MPIR_Process.comm_world->node_comm);
     // fflush(stdout);

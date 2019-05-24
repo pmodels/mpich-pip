@@ -264,11 +264,13 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_recv(int blocking, int *comple
                         req->status.MPI_TAG = sreq->status.MPI_TAG;
                     }
 
+
+                    while (eager_task_id != pip_global.shm_recv_counter[src_local]);
                     MPIDI_POSIX_REQUEST_DEQUEUE_AND_SET_ERROR(&req, prev_req,
                                                               MPIDI_POSIX_recvq_posted, mpi_errno);
-                    (*completion_count)++;
-                    while (eager_task_id != pip_global.shm_recv_counter[src_local]);
+
                     pip_global.shm_recv_counter[src_local]++;
+                    (*completion_count)++;
                     // if (MPIDI_POSIX_mem_region.local_rank){
                     //     printf("rank %d - fflush task, task# %d, compl# %d\n", MPIDI_POSIX_mem_region.local_rank, pip_global.local_task_queue->task_num, pip_global.local_compl_queue->task_num);
                     // }
@@ -398,7 +400,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_send(int blocking, int *comple
          * TODO: make request field dest_lpid (or even recvQ[dest_lpid]) instead of dest - no need to do rank_to_lpid each time
          */
         int grank = MPIDI_CH4U_rank_to_lpid(dest, sreq->comm);
-
+        dest_local = MPIDI_POSIX_mem_region.local_ranks[grank];
         cell->pending = NULL;
 
         if (MPIDI_POSIX_REQUEST(sreq)->type == MPIDI_POSIX_TYPESYNC) {
@@ -495,10 +497,11 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_send(int blocking, int *comple
             //                MPIDI_POSIX_mem_region.local_rank, data_sz, dest_local, pip_global.local_task_queue->task_num);
             //         fflush(stdout);
             /* dequeue sreq */
+
+            while (eager_task_id != pip_global.shm_send_counter[dest_local]);
             MPIDI_POSIX_REQUEST_DEQUEUE_AND_SET_ERROR(&sreq, prev_sreq, MPIDI_POSIX_sendq,
                                                       mpi_errno);
             (*completion_count)++;
-            while (eager_task_id != pip_global.shm_send_counter[dest_local]);
 
             // MPIDI_POSIX_REQUEST_DEQUEUE(&sreq, prev_sreq, MPIDI_POSIX_sendq);
             // if (!MPIDI_POSIX_mem_region.local_rank){
@@ -513,7 +516,6 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_send(int blocking, int *comple
             MPIDI_POSIX_queue_enqueue(MPIDI_POSIX_mem_region.RecvQ[grank], cell);
             pip_global.shm_send_counter[dest_local]++;
         } else {
-            dest_local = MPIDI_POSIX_mem_region.local_ranks[grank];
             task = (MPIDI_PIP_task_t *) MPIR_Handle_obj_alloc(&MPIDI_Task_mem);
             task->cell = cell;
             task->req = sreq;

@@ -213,7 +213,6 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_recv(int blocking, int *comple
                     else
                         MPIDI_POSIX_REQUEST(req)->segment_first = last;
                 } else {
-
                     if (type == MPIDI_POSIX_TYPEEAGER || !in_cell) {
                         MPIDI_PIP_fflush_task();
                         MPIDI_PIP_fflush_compl_task();
@@ -231,7 +230,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_recv(int blocking, int *comple
                         task->compl_flag = 0;
                         task->data_sz = data_sz;
                         // task->type = type;
-                        // task->next = NULL;
+                        task->next = NULL;
                         // task->completion_count = completion_count;
 
                         task->src_first = send_buffer;
@@ -263,7 +262,6 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_recv(int blocking, int *comple
                         req->status.MPI_SOURCE = sreq->status.MPI_SOURCE;
                         req->status.MPI_TAG = sreq->status.MPI_TAG;
                     }
-
 
                     while (eager_task_id != pip_global.shm_recv_counter[src_local]);
                     MPIDI_POSIX_REQUEST_DEQUEUE_AND_SET_ERROR(&req, prev_req,
@@ -419,22 +417,6 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_send(int blocking, int *comple
             MPIDI_PIP_fflush_task();
             MPIDI_PIP_fflush_compl_task();
             if (MPIDI_POSIX_REQUEST(sreq)->type == MPIDI_POSIX_TYPEACK) {
-                // cell->pkt.mpich.type = MPIDI_POSIX_TYPEACK;
-                // cell->pending = MPIDI_POSIX_REQUEST(sreq)->pending;
-                // task = (MPIDI_PIP_task_t *) MPIR_Handle_obj_alloc(&MPIDI_Task_mem);
-                // task->req = sreq;
-                // task->cell = cell;
-                // task->send_flag = 1;
-                // task->data_sz = 0;
-                // task->type = MPIDI_POSIX_TYPEACK;
-                // task->completion_count = completion_count;
-                // task->task_id = pip_global.local_send_counter[dest_local]++;
-                // task->cellQ = MPIDI_POSIX_mem_region.RecvQ[grank];
-                // task->cur_task_id = pip_global.shm_send_counter + dest_local;
-                // task->compl_queue = pip_global.local_compl_queue;
-                // task->next = NULL;
-                // MPIDI_POSIX_REQUEST_COMPLETE(sreq);
-                // (*completion_count)++;
                 cell->pkt.mpich.type = MPIDI_POSIX_TYPEACK;
                 cell->pending = MPIDI_POSIX_REQUEST(sreq)->pending;
             } else {
@@ -451,28 +433,6 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_send(int blocking, int *comple
                 }
 
                 /* Enqueue task without performing actual copy */
-                // task = (MPIDI_PIP_task_t *) MPIR_Handle_obj_alloc(&MPIDI_Task_mem);
-                // task->req = sreq;
-                // task->cell = cell;
-                // task->send_flag = 1;
-                // task->data_sz = data_sz;
-                // task->type = MPIDI_POSIX_TYPEEAGER;
-                // task->completion_count = completion_count;
-                // task->task_id = pip_global.local_send_counter[dest_local]++;
-                // task->cellQ = MPIDI_POSIX_mem_region.RecvQ[grank];
-                // task->cur_task_id = pip_global.shm_send_counter + dest_local;
-                // task->compl_queue = pip_global.local_compl_queue;
-                // // task->next = NULL;
-                // if (!MPIDI_POSIX_REQUEST(sreq)->segment_ptr) {
-                //     /* contig */
-                //     task->src_first = MPIDI_POSIX_REQUEST(sreq)->user_buf;
-                //     task->dest = recv_buffer;
-
-                // } else {
-                //     printf("rank %d - enqueue non-contig data task\n",
-                //            MPIDI_POSIX_mem_region.local_rank);
-                //     fflush(stdout);
-                // }
 
                 cell->pkt.mpich.type = MPIDI_POSIX_TYPEEAGER;
                 /* set status */
@@ -520,6 +480,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_send(int blocking, int *comple
             task->cell = cell;
             task->req = sreq;
             task->compl_flag = 0;
+            task->next = NULL;
             task->data_sz = MPIDI_POSIX_EAGER_THRESHOLD;
             task->cur_task_id = pip_global.shm_send_counter + dest_local;
             task->task_id = pip_global.local_send_counter[dest_local]++;
@@ -577,7 +538,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_send(int blocking, int *comple
             //            MPIDI_POSIX_mem_region.local_rank, task, task->data_sz, pip_global.local_task_queue->task_num);
             //     fflush(stdout);
             // }
-            MPIDI_PIP_do_task_copy(task);
+            if (task)
+                MPIDI_PIP_do_task_copy(task);
         } else {
             /* Steal from others */
             MPIDI_PIP_steal_task();

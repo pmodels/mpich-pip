@@ -22,7 +22,7 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_Task_safe_enqueue(MPIDI_PIP_task_queue_t
     // int err = 0;
     int err;
 
-    task->next = NULL;
+    // task->next = NULL;
     MPID_Thread_mutex_lock(&task_queue->lock, &err);
     if (task_queue->tail) {
         task_queue->tail->next = task;
@@ -112,7 +112,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_Compl_task_enqueue(MPIDI_PIP_task_queue_t
     // int err = 0;
     int mpi_errno = MPI_SUCCESS, err;
 
-    task->next = NULL;
+    // task->next = NULL;
     if (task_queue->tail) {
         task_queue->tail->next = task;
         task_queue->tail = task;
@@ -303,7 +303,8 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_fflush_task()
         MPIDI_PIP_Task_safe_dequeue(pip_global.local_task_queue, &task);
 
         /* find my own task */
-        MPIDI_PIP_do_task_copy(task);
+        if (task)
+            MPIDI_PIP_do_task_copy(task);
     }
     return;
 }
@@ -319,7 +320,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_steal_task()
 #ifdef MPI_PIP_SHM_TASK_STEAL
         if (pip_global.shm_task_queue[victim]->head) {
             MPIDI_PIP_Task_safe_dequeue(pip_global.shm_task_queue[victim], &task);
-            MPIDI_PIP_do_task_copy(task);
+            if (task)
+                MPIDI_PIP_do_task_copy(task);
         }
         // pip_global.try_steal++;
         // pip_global.esteal_try[victim]++;

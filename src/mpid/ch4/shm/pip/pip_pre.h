@@ -15,6 +15,7 @@
 #include <../posix/posix_datatypes.h>
 
 #define MPIDI_TASK_PREALLOC 64
+#define MPIDI_MAX_TASK_THREASHOLD 16
 
 struct MPIDI_PIP_task_queue;
 
@@ -46,7 +47,7 @@ typedef struct MPIDI_PIP_task_queue {
     MPIDI_PIP_task_t *head;
     MPIDI_PIP_task_t *tail;
     MPID_Thread_mutex_t lock;
-    // int task_num;
+    int task_num;
 } MPIDI_PIP_task_queue_t;
 
 typedef struct {

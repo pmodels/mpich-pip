@@ -241,6 +241,16 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_recv(int blocking, int *comple
                         // task->compl_queue = pip_global.local_compl_queue;
                         MPIDI_PIP_Task_safe_enqueue(pip_global.local_task_queue, task);
                         MPIDI_PIP_Compl_task_enqueue(pip_global.local_recv_compl_queue, task);
+                        if (pip_global.local_task_queue->task_num >= MPIDI_MAX_TASK_THREASHOLD) {
+                            // if (MPIDI_POSIX_mem_region.local_rank == 0) {
+                            //     printf("rank %d - sender is flushing task, queue size %d\n",
+                            //            MPIDI_POSIX_mem_region.local_rank, pip_global.local_task_queue->task_num);
+                            //     fflush(stdout);
+                            // }
+                            MPIDI_PIP_fflush_task();
+                            MPIDI_PIP_fflush_compl_task(pip_global.local_send_compl_queue);
+                            MPIDI_PIP_fflush_compl_task(pip_global.local_recv_compl_queue);
+                        }
                     }
                     // if (MPIDI_POSIX_mem_region.local_rank){
                     //     printf("rank %d - enqueue receive data %ld, task %p, src_local %d, task# %d\n",
@@ -514,6 +524,16 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_send(int blocking, int *comple
 
             MPIDI_PIP_Task_safe_enqueue(pip_global.local_task_queue, task);
             MPIDI_PIP_Compl_task_enqueue(pip_global.local_send_compl_queue, task);
+            if (pip_global.local_task_queue->task_num >= MPIDI_MAX_TASK_THREASHOLD) {
+                // if (MPIDI_POSIX_mem_region.local_rank == 0) {
+                //     printf("rank %d - sender is flushing task, queue size %d\n",
+                //            MPIDI_POSIX_mem_region.local_rank, pip_global.local_task_queue->task_num);
+                //     fflush(stdout);
+                // }
+                MPIDI_PIP_fflush_task();
+                MPIDI_PIP_fflush_compl_task(pip_global.local_send_compl_queue);
+                MPIDI_PIP_fflush_compl_task(pip_global.local_recv_compl_queue);
+            }
             // if (!MPIDI_POSIX_mem_region.local_rank)
             // printf("rank %d - enqueue LONG send contig data %ld, dest_local %d, task %p, queue %p, task# %d\n",
             //            MPIDI_POSIX_mem_region.local_rank, task->data_sz, dest_local, task, pip_global.local_task_queue, pip_global.local_task_queue->task_num);

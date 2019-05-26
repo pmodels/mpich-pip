@@ -30,7 +30,7 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_Task_safe_enqueue(MPIDI_PIP_task_queue_t
     } else {
         task_queue->head = task_queue->tail = task;
     }
-    // task_queue->task_num++;
+    task_queue->task_num++;
     MPID_Thread_mutex_unlock(&task_queue->lock, &err);
 
     // if (err)
@@ -65,7 +65,7 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_Task_safe_dequeue(MPIDI_PIP_task_queue_t
         task_queue->head = old_head->next;
         if (task_queue->head == NULL)
             task_queue->tail = NULL;
-        // task_queue->task_num--;
+        task_queue->task_num--;
     }
     MPID_Thread_mutex_unlock(&task_queue->lock, &err);
     // }

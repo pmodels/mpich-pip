@@ -15,7 +15,7 @@
 #include <../posix/posix_datatypes.h>
 
 #define MPIDI_TASK_PREALLOC 64
-#define MPIDI_MAX_TASK_THREASHOLD 16
+#define MPIDI_MAX_TASK_THREASHOLD 36
 
 struct MPIDI_PIP_task_queue;
 
@@ -59,8 +59,9 @@ typedef struct {
     uint64_t *shm_recv_counter;
     MPIDI_PIP_task_queue_t *local_task_queue;
     MPIDI_PIP_task_queue_t **shm_task_queue;
-    MPIDI_PIP_task_queue_t *local_recv_compl_queue;
-    MPIDI_PIP_task_queue_t *local_send_compl_queue;
+    // MPIDI_PIP_task_queue_t *local_recv_compl_queue;
+    // MPIDI_PIP_task_queue_t *local_send_compl_queue;
+    MPIDI_PIP_task_queue_t *local_compl_queue;
     uint64_t copy_size;
     uint64_t try_steal;
     uint64_t suc_steal;

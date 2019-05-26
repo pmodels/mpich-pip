@@ -120,7 +120,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_Compl_task_enqueue(MPIDI_PIP_task_queue_t
         task_queue->head = task_queue->tail = task;
     }
     // MPID_Thread_mutex_lock(&task_queue->lock, &err);
-    // task_queue->task_num++;
+    task_queue->task_num++;
     // *task->cur_task_id = task->task_id + 1;
 
     // MPID_Thread_mutex_unlock(&task_queue->lock, &err);
@@ -158,6 +158,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_Compl_task_delete_head(MPIDI_PIP_task_que
         task_queue->head = old_head->compl_next;
         if (task_queue->head == NULL)
             task_queue->tail = NULL;
+        task_queue->task_num--;
     }
     // MPID_Thread_mutex_lock(&task_queue->lock, &err);
     // old_head = task_queue->head->next;
@@ -300,13 +301,22 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_do_task_copy(MPIDI_PIP_task_t * task)
 MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_fflush_task()
 {
     MPIDI_PIP_task_t *task;
+
     while (pip_global.local_task_queue->head) {
         MPIDI_PIP_Task_safe_dequeue(pip_global.local_task_queue, &task);
 
         /* find my own task */
-        if (task)
+        if (task) {
             MPIDI_PIP_do_task_copy(task);
+            MPIDI_PIP_fflush_compl_task(pip_global.local_compl_queue);
+            // MPIDI_PIP_fflush_compl_task(pip_global.local_send_compl_queue);
+            // MPIDI_PIP_fflush_compl_task(pip_global.local_recv_compl_queue);
+        }
     }
+
+    MPIDI_PIP_fflush_compl_task(pip_global.local_compl_queue);
+    // MPIDI_PIP_fflush_compl_task(pip_global.local_send_compl_queue);
+    // MPIDI_PIP_fflush_compl_task(pip_global.local_recv_compl_queue);
     return;
 }
 

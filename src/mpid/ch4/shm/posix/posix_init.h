@@ -70,30 +70,34 @@ void MPIDI_PIP_init()
     memset(pip_global.esteal_try, 0, num_local * sizeof(int));
 
     MPID_Thread_mutex_create(&pip_global.local_task_queue->lock, &err);
-    // pip_global.local_task_queue->task_num = 0;
+    pip_global.local_task_queue->task_num = 0;
+    pip_global.local_task_queue->head = pip_global.local_task_queue->tail = NULL;
     // task_dummy = (MPIDI_PIP_task_t *) MPIR_Handle_obj_alloc(&MPIDI_Task_mem);
     // task_dummy->next = NULL;
-    pip_global.local_task_queue->head = pip_global.local_task_queue->tail = NULL;
 
-    MPIR_CHKPMEM_MALLOC(pip_global.local_recv_compl_queue, MPIDI_PIP_task_queue_t *,
+    MPIR_CHKPMEM_MALLOC(pip_global.local_compl_queue, MPIDI_PIP_task_queue_t *,
                         sizeof(MPIDI_PIP_task_queue_t), mpi_errno, "local_recv_compl_queue",
                         MPL_MEM_SHM);
+    MPID_Thread_mutex_create(&pip_global.local_compl_queue->lock, &err);
+    pip_global.local_compl_queue->task_num = 0;
+    pip_global.local_compl_queue->head = pip_global.local_compl_queue->tail = NULL;
 
-    // MPID_Thread_mutex_create(&pip_global.local__recvcompl_queue->lock, &err);
-    // pip_global.local_compl_queue->task_num = 0;
+    // MPIR_CHKPMEM_MALLOC(pip_global.local_recv_compl_queue, MPIDI_PIP_task_queue_t *,
+    //                     sizeof(MPIDI_PIP_task_queue_t), mpi_errno, "local_recv_compl_queue",
+    //                     MPL_MEM_SHM);
+    // MPID_Thread_mutex_create(&pip_global.local_recv_compl_queue->lock, &err);
+    // pip_global.local_recv_compl_queue->task_num = 0;
+    // pip_global.local_recv_compl_queue->head = pip_global.local_recv_compl_queue->tail = NULL;
+
+
+    // MPIR_CHKPMEM_MALLOC(pip_global.local_send_compl_queue, MPIDI_PIP_task_queue_t *,
+    //                     sizeof(MPIDI_PIP_task_queue_t), mpi_errno, "local_send_compl_queue",
+    //                     MPL_MEM_SHM);
+    // MPID_Thread_mutex_create(&pip_global.local_send_compl_queue->lock, &err);
+    // pip_global.local_send_compl_queue->task_num = 0;
+    // pip_global.local_send_compl_queue->head = pip_global.local_send_compl_queue->tail = NULL;
     // compl_dummy = (MPIDI_PIP_task_t *) MPIR_Handle_obj_alloc(&MPIDI_Task_mem);
     // compl_dummy->next = NULL;
-    pip_global.local_recv_compl_queue->head = pip_global.local_recv_compl_queue->tail = NULL;
-
-    MPIR_CHKPMEM_MALLOC(pip_global.local_send_compl_queue, MPIDI_PIP_task_queue_t *,
-                        sizeof(MPIDI_PIP_task_queue_t), mpi_errno, "local_send_compl_queue",
-                        MPL_MEM_SHM);
-
-    // MPID_Thread_mutex_create(&pip_global.local__recvcompl_queue->lock, &err);
-    // pip_global.local_compl_queue->task_num = 0;
-    // compl_dummy = (MPIDI_PIP_task_t *) MPIR_Handle_obj_alloc(&MPIDI_Task_mem);
-    // compl_dummy->next = NULL;
-    pip_global.local_send_compl_queue->head = pip_global.local_send_compl_queue->tail = NULL;
 
     // printf("rank %d - I am here node_comm %p\n", local_rank, MPIR_Process.comm_world->node_comm);
     // fflush(stdout);

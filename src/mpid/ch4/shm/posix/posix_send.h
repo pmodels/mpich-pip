@@ -127,8 +127,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_mpi_send(const void *buf, MPI_Aint coun
             cell->pkt.mpich.type = MPIDI_POSIX_TYPEEAGER;
             MPIR_Memcpy((void *) cell->pkt.mpich.p.payload, (char *) buf + dt_true_lb, data_sz);
             cell->pending = NULL;
-            while (pip_global.local_send_compl_queue->head)
-                MPIDI_PIP_fflush_compl_task(pip_global.local_send_compl_queue);
+            while (pip_global.local_compl_queue->head)
+                MPIDI_PIP_fflush_compl_task(pip_global.local_compl_queue);
 
             MPIDI_POSIX_queue_enqueue(MPIDI_POSIX_mem_region.RecvQ[grank], cell);
             *request = NULL;

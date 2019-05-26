@@ -215,7 +215,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_recv(int blocking, int *comple
                 } else {
                     if (type == MPIDI_POSIX_TYPEEAGER || !in_cell) {
                         MPIDI_PIP_fflush_task();
-                        MPIDI_PIP_fflush_compl_task(pip_global.local_recv_compl_queue);
+                        // MPIDI_PIP_fflush_compl_task(pip_global.local_recv_compl_queue);
                         // MPIDI_PIP_fflush_compl_task();
                         if (send_buffer)
                             MPIR_Memcpy(recv_buffer, (void *) send_buffer, data_sz);

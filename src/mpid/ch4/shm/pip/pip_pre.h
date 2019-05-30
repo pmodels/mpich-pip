@@ -57,6 +57,7 @@ typedef struct {
     uint64_t *shm_send_counter;
     uint64_t *local_recv_counter;
     uint64_t *shm_recv_counter;
+    uint64_t *shm_in_proc;
     MPIDI_PIP_task_queue_t *local_task_queue;
     MPIDI_PIP_task_queue_t **shm_task_queue;
     // MPIDI_PIP_task_queue_t *local_recv_compl_queue;

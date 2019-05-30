@@ -12,7 +12,7 @@
 
 if BUILD_SHM_POSIX
 
-noinst_HEADERS += src/mpid/ch4/shm/pip/pip_pre.h   \    
+noinst_HEADERS += src/mpid/ch4/shm/pip/pip_pre.h   \
 			      src/mpid/ch4/shm/pip/pip_impl.h   
 
 mpi_core_sources += src/mpid/ch4/shm/pip/globals.c

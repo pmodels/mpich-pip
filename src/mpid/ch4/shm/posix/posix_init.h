@@ -31,7 +31,7 @@ void MPIDI_PIP_init()
     uint64_t *task_queue_addr;
     MPIR_Errflag_t errflag = MPIR_ERR_NONE;
     // MPIDI_PIP_task_t *task_dummy, *compl_dummy;
-    MPIR_CHKPMEM_DECL(10);
+    MPIR_CHKPMEM_DECL(11);
 
     pip_global.num_local = num_local = MPIDI_POSIX_mem_region.num_local;
     pip_global.local_rank = local_rank = MPIDI_POSIX_mem_region.local_rank;
@@ -82,6 +82,12 @@ void MPIDI_PIP_init()
     pip_global.local_compl_queue->task_num = 0;
     pip_global.local_compl_queue->head = pip_global.local_compl_queue->tail = NULL;
 
+    if (pip_global.local_rank == 0) {
+        MPIR_CHKPMEM_MALLOC(pip_global.shm_in_proc, uint64_t *,
+                            pip_global.num_local * sizeof(uint64_t), mpi_errno, "shm_in_proc",
+                            MPL_MEM_SHM);
+        memset(pip_global.shm_in_proc, 0, pip_global.num_local * sizeof(uint64_t));
+    }
     // MPIR_CHKPMEM_MALLOC(pip_global.local_recv_compl_queue, MPIDI_PIP_task_queue_t *,
     //                     sizeof(MPIDI_PIP_task_queue_t), mpi_errno, "local_recv_compl_queue",
     //                     MPL_MEM_SHM);
@@ -104,9 +110,14 @@ void MPIDI_PIP_init()
     if (MPIR_Process.comm_world->node_comm) {
         MPIDU_shm_seg_t pip_memory;
         MPIDU_shm_barrier_t *pip_barrier;
+        uint64_t *shm_in_proc_addr;
         mpi_errno =
             MPIDU_shm_seg_alloc(num_local * sizeof(uint64_t),
                                 (void **) &task_queue_addr, MPL_MEM_SHM);
+        if (mpi_errno)
+            MPIR_ERR_POP(mpi_errno);
+
+        mpi_errno = MPIDU_shm_seg_alloc(sizeof(uint64_t), (void **) &shm_in_proc_addr, MPL_MEM_SHM);
         if (mpi_errno)
             MPIR_ERR_POP(mpi_errno);
 
@@ -118,10 +129,15 @@ void MPIDI_PIP_init()
             MPIR_ERR_POP(mpi_errno);
 
         task_queue_addr[local_rank] = (uint64_t) pip_global.local_task_queue;
-
+        if (pip_global.local_rank == 0)
+            *shm_in_proc_addr = (uint64_t) pip_global.shm_in_proc;
         mpi_errno = MPIDU_shm_barrier(pip_barrier, num_local);
         if (mpi_errno)
             MPIR_ERR_POP(mpi_errno);
+
+        if (pip_global.local_rank != 0) {
+            pip_global.shm_in_proc = (uint64_t *) * shm_in_proc_addr;
+        }
 
         for (i = 0; i < num_local; ++i) {
             // printf("rank %d - get process %d task queue %lx\n", local_rank, i, task_queue_addr[i]);

@@ -104,6 +104,7 @@ typedef struct {
 #define MPIDI_POSIX_REQUEST_CREATE_SREQ(sreq_)                  \
     {                                                           \
         (sreq_) = MPIR_Request_create(MPIR_REQUEST_KIND__SEND); \
+        MPIDI_POSIX_REQUEST(sreq_)->cur_cell_id = 0;            \
         MPIR_ERR_CHKANDSTMT((sreq_) == NULL, mpi_errno, MPIX_ERR_NOREQ, goto fn_fail, "**nomemreq"); \
         MPIR_Request_add_ref((sreq_));                          \
         (sreq_)->u.persist.real_request   = NULL;               \
@@ -112,6 +113,7 @@ typedef struct {
 #define MPIDI_POSIX_REQUEST_CREATE_RREQ(rreq_)                  \
     {                                                           \
         (rreq_) = MPIR_Request_create(MPIR_REQUEST_KIND__RECV); \
+        MPIDI_POSIX_REQUEST(rreq_)->cur_cell_id = 0;            \
         MPIR_ERR_CHKANDSTMT((rreq_) == NULL, mpi_errno, MPIX_ERR_NOREQ, goto fn_fail, "**nomemreq"); \
         MPIR_Request_add_ref((rreq_));                          \
         (rreq_)->u.persist.real_request   = NULL;               \

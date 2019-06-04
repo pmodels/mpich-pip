@@ -210,10 +210,13 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_fflush_compl_task(MPIDI_PIP_task_queue_t
 {
     MPIDI_PIP_task_t *task = compl_queue->head;
     while (task && task->compl_flag) {
+        // if (task->compl_flag) {
         MPIDI_PIP_Compl_task_delete_head(compl_queue);
-        MPIDI_POSIX_queue_enqueue(task->cell_queue, task->cell);
+        // MPIDI_POSIX_queue_enqueue(task->cell_queue, task->cell);
         MPIR_Handle_obj_free(&MPIDI_Task_mem, task);
-        task = compl_queue->head;
+        // }
+
+        task = task->compl_next;
         // if (task) {
         //      // if (MPIDI_POSIX_mem_region.local_rank == 1)
         //      // printf("rank %d - complete task %p BEGIN\n", MPIDI_POSIX_mem_region.local_rank, task);
@@ -237,32 +240,44 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_do_task_copy(MPIDI_PIP_task_t * task)
     // int task_id = task->task_id;
     // void *recv_buffer;
     MPIDI_POSIX_cell_ptr_t cell = task->cell;
-    if (task->data_sz) {
-        MPIR_Request *req = task->req;
-        if (MPIDI_POSIX_REQUEST(req)->segment_ptr) {
-            printf("rank %d - dealing with non-contig data right now\n", pip_global.local_rank);
-            fflush(stdout);
-            // size_t last = MPIDI_POSIX_REQUEST(req)->segment_first + task->data_sz;
-            // MPIR_Segment_pack(MPIDI_POSIX_REQUEST(req)->segment_ptr,
-            //                   MPIDI_POSIX_REQUEST(req)->segment_first, (MPI_Aint *) & last,
-            //                   recv_buffer);
-            // MPIDI_POSIX_REQUEST(req)->segment_first = last;
-            /* non-contig */
-        } else {
-            /* contig */
-            // printf("rank %d - send data size %ld, task %p, src %p, dest %p\n", pip_global.local_rank,
-            //        task->data_sz, task, task->src_first, task->dest);
-            // fflush(stdout);
-            MPIR_Memcpy(task->dest, task->src_first, task->data_sz);
-        }
-        // pip_global.copy_size += task->data_sz;
+
+    // struct timespec start, end;
+    // clock_gettime(CLOCK_MONOTONIC, &start);
+
+    MPIR_Request *req = task->req;
+    if (MPIDI_POSIX_REQUEST(req)->segment_ptr) {
+        printf("rank %d - dealing with non-contig data right now\n", pip_global.local_rank);
+        fflush(stdout);
+        // size_t last = MPIDI_POSIX_REQUEST(req)->segment_first + task->data_sz;
+        // MPIR_Segment_pack(MPIDI_POSIX_REQUEST(req)->segment_ptr,
+        //                   MPIDI_POSIX_REQUEST(req)->segment_first, (MPI_Aint *) & last,
+        //                   recv_buffer);
+        // MPIDI_POSIX_REQUEST(req)->segment_first = last;
+        /* non-contig */
+    } else {
+        /* contig */
+        // printf("rank %d - send data size %ld, task %p, src %p, dest %p\n", pip_global.local_rank,
+        //        task->data_sz, task, task->src_first, task->dest);
+        // fflush(stdout);
+        MPIR_Memcpy(task->dest, task->src_first, task->data_sz);
     }
+    // pip_global.copy_size += task->data_sz;
+
     // task->next = NULL;
 
     // while (task_id != *task->cur_task_id);
-    // MPIDI_POSIX_queue_enqueue(task->cellQ, cell);
-    // *task->cur_task_id = task_id + 1;
+    // OPA_write_barrier();
+    // if (task->send_flag){
+    MPIDI_POSIX_PIP_queue_enqueue(task->cell_queue, cell, task->asym_addr);
+    // }
     OPA_write_barrier();
+    // *task->cur_task_id = task_id + 1;
+    // OPA_write_barrier();
+    // clock_gettime(CLOCK_MONOTONIC, &end);
+    // double time = (end.tv_sec - start.tv_sec) * 1e6 + (end.tv_nsec - start.tv_nsec) / 1e3;
+    // printf("rank %d - copy data from %d, size %ld, time %.3lfus\n", pip_global.local_rank, task->rank,
+    //        task->data_sz, time);
+    // fflush(stdout);
     task->compl_flag = 1;
 
     // MPIDI_PIP_Compl_task_safe_enqueue(task->compl_queue, task);
@@ -308,7 +323,8 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_fflush_task()
         /* find my own task */
         if (task) {
             MPIDI_PIP_do_task_copy(task);
-            MPIDI_PIP_fflush_compl_task(pip_global.local_compl_queue);
+            // MPIDI_PIP_compl_one_task(pip_global.local_compl_queue);
+            // MPIDI_PIP_fflush_compl_task(pip_global.local_compl_queue);
             // MPIDI_PIP_fflush_compl_task(pip_global.local_send_compl_queue);
             // MPIDI_PIP_fflush_compl_task(pip_global.local_recv_compl_queue);
         }

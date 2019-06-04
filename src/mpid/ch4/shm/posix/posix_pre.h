@@ -24,6 +24,7 @@ typedef struct {
     int rank;
     int tag;
     int context_id;
+    int cur_cell_id;
     char *user_buf;
     size_t data_sz;
     int type;

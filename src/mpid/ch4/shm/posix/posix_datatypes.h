@@ -99,9 +99,10 @@ typedef struct MPIDI_POSIX_cell {
     int rank;
     int tag;
     int context_id;
+    int cell_id;
     MPIR_Request *pending;
 #if MPIDI_POSIX_CACHE_LINE_LEN != 0
-    char padding[MPIDI_POSIX_CACHE_LINE_LEN - MPIDI_POSIX_CELL_HEAD_LEN - MPIDI_POSIX_MPICH_HEAD_LEN - 4 * sizeof(int) - sizeof(MPIR_Request *)];       /* should be 64-16-16-16-8 = 8 */
+    char padding[MPIDI_POSIX_CACHE_LINE_LEN - MPIDI_POSIX_CELL_HEAD_LEN - MPIDI_POSIX_MPICH_HEAD_LEN - 6 * sizeof(int) - sizeof(MPIR_Request *)];       /* should be 64-16-16-16-8 = 8 */
 #endif
     volatile MPIDI_POSIX_pkt_t pkt;
 } MPIDI_POSIX_cell_t;

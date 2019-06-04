@@ -90,6 +90,50 @@ static inline MPIDI_POSIX_cell_rel_ptr_t MPIDI_POSIX_CAS_REL_NULL(MPIDI_POSIX_ce
     return ret;
 }
 
+
+static inline void MPIDI_POSIX_PIP_queue_enqueue(MPIDI_POSIX_queue_ptr_t qhead,
+                                                 MPIDI_POSIX_cell_ptr_t element, uint64_t asym_addr)
+{
+    MPIDI_POSIX_cell_rel_ptr_t r_prev;
+    MPIDI_POSIX_cell_rel_ptr_t r_element = MPIDI_POSIX_PIP_ABS_TO_REL(element, asym_addr);
+
+    /* the _dequeue can break if this does not hold */
+    MPIDI_POSIX_Q_assert(MPIDI_POSIX_IS_REL_NULL(element->next));
+
+    /* Orders payload and e->next=NULL w.r.t. the SWAP, updating head, and
+     * updating prev->next.  We assert e->next==NULL above, but it may have been
+     * done by us in the preceding _dequeue operation.
+     *
+     * The SWAP itself does not need to be ordered w.r.t. the payload because
+     * the consumer does not directly inspect the tail.  But the subsequent
+     * update to the head or e->next field does need to be ordered w.r.t. the
+     * payload or the consumer may read incorrect data. */
+    OPA_write_barrier();
+
+    /* enqueue at tail */
+    r_prev = MPIDI_POSIX_SWAP_REL(&(qhead->tail), r_element);
+
+    if (MPIDI_POSIX_IS_REL_NULL(r_prev)) {
+        /* queue was empty, element is the new head too */
+
+        /* no write barrier needed, we believe atomic SWAP with a control
+         * dependence (if) will enforce ordering between the SWAP and the head
+         * assignment */
+        qhead->head = r_element;
+    } else {
+        /* queue was not empty, swing old tail's next field to point to
+         * our element */
+        MPIDI_POSIX_Q_assert(MPIDI_POSIX_IS_REL_NULL
+                             (MPIDI_POSIX_PIP_REL_TO_ABS(r_prev)->next, asym_addr));
+
+        /* no write barrier needed, we believe atomic SWAP with a control
+         * dependence (if/else) will enforce ordering between the SWAP and the
+         * prev->next assignment */
+        MPIDI_POSIX_PIP_REL_TO_ABS(r_prev, asym_addr)->next = r_element;
+    }
+}
+
+
 static inline void MPIDI_POSIX_queue_enqueue(MPIDI_POSIX_queue_ptr_t qhead,
                                              MPIDI_POSIX_cell_ptr_t element)
 {

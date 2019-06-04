@@ -385,18 +385,18 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_mpi_finalize_hook(void)
     int mpi_errno = MPI_SUCCESS;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_POSIX_FINALIZE);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_POSIX_FINALIZE);
-    // char results[1024];
-    // char buffer[128];
-    // sprintf(results, "rank %d - copy size %ld", pip_global.local_rank, pip_global.copy_size);
-    // fflush(stdout);
+    char results[1024];
+    char buffer[128];
+    sprintf(results, "rank %d - copy size %ld", pip_global.local_rank, pip_global.copy_size);
+    fflush(stdout);
     // int i;
     // for (i = 0; i < pip_global.num_local; i++) {
     //     sprintf(buffer, ", (%d, %d, %d)", i, pip_global.esteal_try[i], pip_global.esteal_done[i]);
     //     strcat(results, buffer);
     // }
 
-    // printf("%s\n", results);
-    // fflush(stdout);
+    printf("%s\n", results);
+    fflush(stdout);
     /* local barrier */
     mpi_errno = MPIDU_shm_barrier(MPIDI_POSIX_mem_region.barrier, MPIDI_POSIX_mem_region.num_local);
 

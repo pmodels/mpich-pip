@@ -92,7 +92,7 @@ static inline MPIDI_POSIX_cell_rel_ptr_t MPIDI_POSIX_CAS_REL_NULL(MPIDI_POSIX_ce
 
 
 static inline void MPIDI_POSIX_PIP_queue_enqueue(MPIDI_POSIX_queue_ptr_t qhead,
-                                                 MPIDI_POSIX_cell_ptr_t element, uint64_t asym_addr)
+                                                 MPIDI_POSIX_cell_ptr_t element, MPI_Aint asym_addr)
 {
     MPIDI_POSIX_cell_rel_ptr_t r_prev;
     MPIDI_POSIX_cell_rel_ptr_t r_element = MPIDI_POSIX_PIP_ABS_TO_REL(element, asym_addr);

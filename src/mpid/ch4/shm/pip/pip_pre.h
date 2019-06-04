@@ -25,7 +25,7 @@ typedef struct MPIDI_PIP_task {
     MPIR_Request *req;
     int rank;
     int compl_flag;
-    uint64_t asym_addr;
+    MPI_Aint asym_addr;
     // union {
     MPIDI_POSIX_cell_ptr_t cell;
     //     MPIR_Request *unexp_req;

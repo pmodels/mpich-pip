@@ -48,16 +48,16 @@ extern char *MPIDI_POSIX_asym_base_addr;
 #ifndef MPIDI_POSIX_SYMMETRIC_QUEUES
 
 static inline MPIDI_POSIX_cell_ptr_t MPIDI_POSIX_PIP_REL_TO_ABS(MPIDI_POSIX_cell_rel_ptr_t r,
-                                                                uint64_t asym_addr)
+                                                                MPI_Aint asym_addr)
 {
-    return (MPIDI_POSIX_cell_ptr_t) ((char *) OPA_load_ptr(&r.p) + (MPIDI_POSIX_addr_t) asym_addr);
+    return (MPIDI_POSIX_cell_ptr_t) ((char *) OPA_load_ptr(&r.p) + asym_addr);
 }
 
 static inline MPIDI_POSIX_cell_rel_ptr_t MPIDI_POSIX_PIP_ABS_TO_REL(MPIDI_POSIX_cell_ptr_t a,
-                                                                    uint64_t asym_addr)
+                                                                    MPI_Aint asym_addr)
 {
     MPIDI_POSIX_cell_rel_ptr_t ret;
-    OPA_store_ptr(&ret.p, (char *) a - (MPIDI_POSIX_addr_t) asym_addr);
+    OPA_store_ptr(&ret.p, (char *) a - asym_addr);
     return ret;
 }
 

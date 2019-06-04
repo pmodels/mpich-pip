@@ -216,7 +216,7 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_fflush_compl_task(MPIDI_PIP_task_queue_t
         MPIR_Handle_obj_free(&MPIDI_Task_mem, task);
         // }
 
-        task = task->compl_next;
+        task = compl_queue->head;
         // if (task) {
         //      // if (MPIDI_POSIX_mem_region.local_rank == 1)
         //      // printf("rank %d - complete task %p BEGIN\n", MPIDI_POSIX_mem_region.local_rank, task);
@@ -261,7 +261,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_do_task_copy(MPIDI_PIP_task_t * task)
         // fflush(stdout);
         MPIR_Memcpy(task->dest, task->src_first, task->data_sz);
     }
-    // pip_global.copy_size += task->data_sz;
+    pip_global.copy_size += task->data_sz;
 
     // task->next = NULL;
 

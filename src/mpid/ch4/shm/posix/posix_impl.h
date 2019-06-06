@@ -27,6 +27,7 @@
 /* constants                                            */
 /* ---------------------------------------------------- */
 #define MPIDI_POSIX_EAGER_THRESHOLD MPIDI_POSIX_DATA_LEN
+#define MPIDI_POSIX_EAGER_THRESHOLD_2TIME (MPIDI_POSIX_DATA_LEN << 1)
 #define MPIDI_POSIX_TYPESTANDARD    0
 #define MPIDI_POSIX_TYPEEAGER       1
 #define MPIDI_POSIX_TYPELMT         2
@@ -34,6 +35,7 @@
 #define MPIDI_POSIX_TYPEBUFFERED    4
 #define MPIDI_POSIX_TYPEREADY       5
 #define MPIDI_POSIX_TYPEACK         6
+#define MPIDI_POSIX_TYPELMT_LAST    7
 #define MPIDI_POSIX_REQUEST(req)    (&(req)->dev.ch4.shm.posix)
 
 /* ---------------------------------------------------- */

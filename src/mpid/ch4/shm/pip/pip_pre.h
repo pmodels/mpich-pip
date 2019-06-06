@@ -15,7 +15,7 @@
 #include <../posix/posix_datatypes.h>
 
 #define MPIDI_TASK_PREALLOC 64
-#define MPIDI_MAX_TASK_THREASHOLD 8
+#define MPIDI_MAX_TASK_THREASHOLD 62
 
 struct MPIDI_PIP_task_queue;
 

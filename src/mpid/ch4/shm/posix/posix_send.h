@@ -117,7 +117,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_mpi_send(const void *buf, MPI_Aint coun
         int grank = MPIDI_CH4U_rank_to_lpid(rank, comm);
 
         /* Try freeQ */
-        if (!MPIDI_POSIX_queue_empty(MPIDI_POSIX_mem_region.my_freeQ)) {
+        if (MPIDI_POSIX_sendq.head == NULL && !MPIDI_POSIX_queue_empty(MPIDI_POSIX_mem_region.my_freeQ)) {
             MPIDI_POSIX_cell_ptr_t cell;
             // MPIDI_PIP_fflush_task();
 

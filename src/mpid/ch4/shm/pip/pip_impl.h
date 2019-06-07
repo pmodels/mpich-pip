@@ -370,8 +370,10 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_steal_task()
     MPIDI_PIP_task_t *task = NULL;
     if (victim != pip_global.local_rank) {
 #ifdef MPI_PIP_SHM_TASK_STEAL
-        if (pip_global.shm_task_queue[victim]->head) {
+        if (pip_global.shm_in_proc[victim] < pip_global.shm_task_queue[victim]->task_num) {
+            __sync_add_and_fetch(&pip_global.shm_in_proc[victim], 1);
             MPIDI_PIP_Task_safe_dequeue(pip_global.shm_task_queue[victim], &task);
+            __sync_sub_and_fetch(&pip_global.shm_in_proc[victim], 1);
             if (task)
                 MPIDI_PIP_do_task_copy(task);
         }

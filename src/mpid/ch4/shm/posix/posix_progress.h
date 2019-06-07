@@ -203,6 +203,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_recv(int blocking, int *comple
                     // printf("rank %d - progress engine receive non-contig data\n",
                     //        MPIDI_POSIX_mem_region.local_rank);
                     // fflush(stdout);
+                    pip_global.copy_size += data_sz;
                     size_t last = MPIDI_POSIX_REQUEST(req)->segment_first + data_sz;
                     MPIR_Segment_unpack(MPIDI_POSIX_REQUEST(req)->segment_ptr,
                                         MPIDI_POSIX_REQUEST(req)->segment_first,
@@ -226,11 +227,14 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_recv(int blocking, int *comple
                         MPIDI_PIP_fflush_task();
                         // MPIDI_PIP_fflush_compl_task(pip_global.local_recv_compl_queue);
                         // MPIDI_PIP_fflush_compl_task();
-                        if (send_buffer)
+                        if (send_buffer) {
+                            pip_global.copy_size += data_sz;
                             MPIR_Memcpy(recv_buffer, (void *) send_buffer, data_sz);
+                        }
                         // eager_task_id = pip_global.local_recv_counter[src_local]++;
                     } else {
                         if (type == MPIDI_POSIX_TYPELMT_LAST) {
+                            pip_global.copy_size += data_sz;
                             MPIR_Memcpy(recv_buffer, (void *) send_buffer, data_sz);
                         } else {
                             task = (MPIDI_PIP_task_t *) MPIR_Handle_obj_alloc(&MPIDI_Task_mem);
@@ -346,6 +350,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_recv(int blocking, int *comple
             MPIDI_POSIX_REQUEST(rreq)->data_sz = data_sz;
             MPIDI_POSIX_REQUEST(rreq)->type = cell->pkt.mpich.type;
             MPIDI_POSIX_REQUEST(rreq)->cur_cell_id = cell->cell_id;
+            pip_global.copy_size += data_sz;
             if (data_sz > 0) {
                 MPIDI_POSIX_REQUEST(rreq)->user_buf = (char *) MPL_malloc(data_sz, MPL_MEM_SHM);
                 MPIR_Memcpy(MPIDI_POSIX_REQUEST(rreq)->user_buf, (void *) cell->pkt.mpich.p.payload,
@@ -460,6 +465,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_send(int blocking, int *comple
                 cell->pkt.mpich.type = MPIDI_POSIX_TYPEACK;
                 cell->pending = MPIDI_POSIX_REQUEST(sreq)->pending;
             } else {
+                pip_global.copy_size += data_sz;
                 if (MPIDI_POSIX_REQUEST(sreq)->segment_ptr) {
                     /* non-contig */
                     MPIR_Segment_pack(MPIDI_POSIX_REQUEST(sreq)->segment_ptr,
@@ -537,7 +543,6 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_send(int blocking, int *comple
         } else {
             cell->pkt.mpich.datalen = MPIDI_POSIX_EAGER_THRESHOLD;
             MPIDI_POSIX_REQUEST(sreq)->data_sz -= MPIDI_POSIX_EAGER_THRESHOLD;
-
             cell->cell_id = MPIDI_POSIX_REQUEST(sreq)->cur_cell_id++;
 
             if (MPIDI_POSIX_REQUEST(sreq)->data_sz > MPIDI_POSIX_EAGER_THRESHOLD) {
@@ -602,6 +607,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_send(int blocking, int *comple
             } else {
                 /* only one LMT send left */
                 /* long message */
+                pip_global.copy_size += MPIDI_POSIX_EAGER_THRESHOLD;
                 cell->pkt.mpich.type = MPIDI_POSIX_TYPELMT_LAST;
                 if (MPIDI_POSIX_REQUEST(sreq)->segment_ptr) {
                     /* non-contig */

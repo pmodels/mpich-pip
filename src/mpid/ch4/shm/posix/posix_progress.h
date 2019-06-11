@@ -193,10 +193,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_recv(int blocking, int *comple
                     req->status.MPI_ERROR = MPI_ERR_TRUNCATE;
                     data_sz = user_data_sz;
                 }
+                // int grank = MPIDI_CH4U_rank_to_lpid(sender_rank, req->comm);
 
-                int grank = MPIDI_CH4U_rank_to_lpid(sender_rank, req->comm);
-
-                // int src_local = MPIDI_POSIX_mem_region.local_ranks[grank];
                 /* copy to user buffer */
                 if (MPIDI_POSIX_REQUEST(req)->segment_ptr) {
                     /* non-contig */
@@ -224,7 +222,6 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_recv(int blocking, int *comple
                                                                        (sreq)->cur_cell_id *
                                                                        MPIDI_POSIX_EAGER_THRESHOLD);
                     if (type == MPIDI_POSIX_TYPEEAGER || !in_cell) {
-                        MPIDI_PIP_fflush_task();
                         // MPIDI_PIP_fflush_compl_task(pip_global.local_recv_compl_queue);
                         // MPIDI_PIP_fflush_compl_task();
                         if (send_buffer) {
@@ -234,9 +231,13 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_recv(int blocking, int *comple
                         // eager_task_id = pip_global.local_recv_counter[src_local]++;
                     } else {
                         if (type == MPIDI_POSIX_TYPELMT_LAST) {
+                            MPIDI_PIP_fflush_task();
                             pip_global.copy_size += data_sz;
                             MPIR_Memcpy(recv_buffer, (void *) send_buffer, data_sz);
+                            while (pip_global.local_compl_queue->head)
+                                MPIDI_PIP_fflush_compl_task(pip_global.local_compl_queue);
                         } else {
+                            // int src_local = MPIDI_POSIX_mem_region.local_ranks[grank];
                             task = (MPIDI_PIP_task_t *) MPIR_Handle_obj_alloc(&MPIDI_Task_mem);
                             task->req = req;
                             cell->pending = NULL;
@@ -257,7 +258,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_recv(int blocking, int *comple
                             // task->task_id = pip_global.local_recv_counter[src_local]++;
                             // task->cur_task_id = pip_global.shm_recv_counter + src_local;
                             // task->compl_queue = pip_global.local_compl_queue;
-                            MPIDI_PIP_Task_safe_enqueue(pip_global.local_task_queue, task);
+                            MPIDI_PIP_Task_safe_enqueue(&pip_global.task_queue[cell->socket_id],
+                                                        task);
                             MPIDI_PIP_Compl_task_enqueue(pip_global.local_compl_queue, task);
                             if (pip_global.local_compl_queue->task_num >= MPIDI_MAX_TASK_THREASHOLD) {
                                 // if (MPIDI_POSIX_mem_region.local_rank == 0) {
@@ -293,9 +295,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_recv(int blocking, int *comple
                         //            MPIDI_POSIX_mem_region.local_rank,
                         //            pip_global.local_recv_compl_queue->task_num);
                         // fflush(stdout);
-                        while (pip_global.local_compl_queue->head)
-                            MPIDI_PIP_fflush_compl_task(pip_global.local_compl_queue);
-                        OPA_read_barrier();
+
+                        // OPA_read_barrier();
 
                         // if (MPIDI_POSIX_mem_region.local_rank <= 1)
                         //     printf("rank %d - END RECV eager flush task_num %d\n",
@@ -443,7 +444,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_send(int blocking, int *comple
          * TODO: make request field dest_lpid (or even recvQ[dest_lpid]) instead of dest - no need to do rank_to_lpid each time
          */
         int grank = MPIDI_CH4U_rank_to_lpid(dest, sreq->comm);
-        dest_local = MPIDI_POSIX_mem_region.local_ranks[grank];
+        // dest_local = MPIDI_POSIX_mem_region.local_ranks[grank];
         cell->pending = NULL;
 
         if (MPIDI_POSIX_REQUEST(sreq)->type == MPIDI_POSIX_TYPESYNC) {
@@ -459,7 +460,6 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_send(int blocking, int *comple
         if (data_sz <= MPIDI_POSIX_EAGER_THRESHOLD) {
             int eager_task_id;
             cell->pkt.mpich.datalen = data_sz;
-            MPIDI_PIP_fflush_task();
             // MPIDI_PIP_fflush_compl_task(pip_global.local_send_compl_queue);
             if (MPIDI_POSIX_REQUEST(sreq)->type == MPIDI_POSIX_TYPEACK) {
                 cell->pkt.mpich.type = MPIDI_POSIX_TYPEACK;
@@ -510,9 +510,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_send(int blocking, int *comple
             //            MPIDI_POSIX_mem_region.local_rank,
             //            pip_global.local_send_compl_queue->task_num);
             // fflush(stdout);
-            while (pip_global.local_compl_queue->head)
-                MPIDI_PIP_fflush_compl_task(pip_global.local_compl_queue);
-            OPA_read_barrier();
+
+            // OPA_read_barrier();
             // if (MPIDI_POSIX_mem_region.local_rank <= 1)
             //     printf("rank %d - END SEND eager flush send_queue task_num %d\n",
             //            MPIDI_POSIX_mem_region.local_rank,
@@ -586,7 +585,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_send(int blocking, int *comple
 
                 //     fflush(stdout);
                 // }
-                MPIDI_PIP_Task_safe_enqueue(pip_global.local_task_queue, task);
+                MPIDI_PIP_Task_safe_enqueue(&pip_global.task_queue[cell->socket_id], task);
                 MPIDI_PIP_Compl_task_enqueue(pip_global.local_compl_queue, task);
                 // if (MPIDI_POSIX_mem_region.local_rank == 0) {
                 //     printf
@@ -607,6 +606,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_send(int blocking, int *comple
             } else {
                 /* only one LMT send left */
                 /* long message */
+                MPIDI_PIP_fflush_task();
                 pip_global.copy_size += MPIDI_POSIX_EAGER_THRESHOLD;
                 cell->pkt.mpich.type = MPIDI_POSIX_TYPELMT_LAST;
                 if (MPIDI_POSIX_REQUEST(sreq)->segment_ptr) {
@@ -623,6 +623,9 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_send(int blocking, int *comple
                                 MPIDI_POSIX_EAGER_THRESHOLD);
                     MPIDI_POSIX_REQUEST(sreq)->user_buf += MPIDI_POSIX_EAGER_THRESHOLD;
                 }
+
+                while (pip_global.local_compl_queue->head)
+                    MPIDI_PIP_fflush_compl_task(pip_global.local_compl_queue);
                 MPIDI_POSIX_queue_enqueue(MPIDI_POSIX_mem_region.RecvQ[grank], cell);
             }
 
@@ -636,8 +639,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_send(int blocking, int *comple
         // (*completion_count)++;
     } else if (pip_global.recv_empty) {
 
-        if (pip_global.local_task_queue->head) {
-            MPIDI_PIP_compl_one_task();
+        if (pip_global.task_queue[pip_global.local_numa_id].head) {
+            MPIDI_PIP_exec_task(&pip_global.task_queue[pip_global.local_numa_id]);
             //     MPIDI_PIP_Task_safe_dequeue(pip_global.local_task_queue, &task);
             //     // printf("rank %d - get task %p\n",
             //     //                MPIDI_POSIX_mem_region.local_rank, task);
@@ -666,10 +669,18 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_send(int blocking, int *comple
             //         MPIDI_PIP_fflush_compl_task(pip_global.local_recv_compl_queue);
             //     }
         } else {
+            int i;
+            for (i = 0; i < pip_global.numa_max_node; ++i) {
+                if (pip_global.task_queue[i].head && i != pip_global.local_numa_id) {
+                    MPIDI_PIP_exec_task(&pip_global.task_queue[i]);
+                    goto fn_exit;
+                }
+            }
             // MPIDI_PIP_fflush_compl_task(pip_global.local_compl_queue);
             // MPIDI_PIP_fflush_compl_task(pip_global.local_send_compl_queue);
             // MPIDI_PIP_fflush_compl_task(pip_global.local_recv_compl_queue);
             /* Steal from others */
+
             MPIDI_PIP_steal_task();
         }
     }

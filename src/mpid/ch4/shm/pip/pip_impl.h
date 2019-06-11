@@ -312,19 +312,45 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_do_task_copy(MPIDI_PIP_task_t * task)
 
 
 #undef FCNAME
+#define FCNAME MPL_QUOTE(MPIDI_PIP_compl_one_task)
+MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_compl_one_task(MPIDI_PIP_task_queue_t * compl_queue)
+{
+    MPIDI_PIP_task_t *task = compl_queue->head;
+    if (task && task->compl_flag) {
+        // if (task->compl_flag) {
+        MPIDI_PIP_Compl_task_delete_head(compl_queue);
+        // MPIDI_POSIX_queue_enqueue(task->cell_queue, task->cell);
+        MPIR_Handle_obj_free(&MPIDI_Task_mem, task);
+        // }
+        // if (task) {
+        //      // if (MPIDI_POSIX_mem_region.local_rank == 1)
+        //      // printf("rank %d - complete task %p BEGIN\n", MPIDI_POSIX_mem_region.local_rank, task);
+        //      // fflush(stdout);
+        //      MPIDI_PIP_do_task_compl(task);
+        //      // if (MPIDI_POSIX_mem_region.local_rank == 1)
+        //      // printf("rank %d - complete task %p END\n", MPIDI_POSIX_mem_region.local_rank, task);
+        //      // fflush(stdout);
+        // } else
+        //      break;
+    }
+    return;
+}
+
+
+#undef FCNAME
 #define FCNAME MPL_QUOTE(MPIDI_PIP_fflush_task)
-MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_compl_one_task()
+MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_exec_task(MPIDI_PIP_task_queue_t * task_queue)
 {
     MPIDI_PIP_task_t *task;
 
-    if (pip_global.local_task_queue->head) {
-        MPIDI_PIP_Task_safe_dequeue(pip_global.local_task_queue, &task);
+    if (task_queue->head) {
+        MPIDI_PIP_Task_safe_dequeue(task_queue, &task);
 
         /* find my own task */
         if (task) {
             MPIDI_PIP_do_task_copy(task);
             // MPIDI_PIP_compl_one_task(pip_global.local_compl_queue);
-            MPIDI_PIP_fflush_compl_task(pip_global.local_compl_queue);
+            MPIDI_PIP_compl_one_task(pip_global.local_compl_queue);
             // MPIDI_PIP_fflush_compl_task(pip_global.local_send_compl_queue);
             // MPIDI_PIP_fflush_compl_task(pip_global.local_recv_compl_queue);
         }
@@ -341,20 +367,21 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_compl_one_task()
 MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_fflush_task()
 {
     MPIDI_PIP_task_t *task;
+    int i;
+    for (i = 0; i < pip_global.numa_max_node; ++i) {
+        while (pip_global.task_queue[i].head) {
+            MPIDI_PIP_Task_safe_dequeue(&pip_global.task_queue[i], &task);
 
-    while (pip_global.local_task_queue->head) {
-        MPIDI_PIP_Task_safe_dequeue(pip_global.local_task_queue, &task);
-
-        /* find my own task */
-        if (task) {
-            MPIDI_PIP_do_task_copy(task);
-            // MPIDI_PIP_compl_one_task(pip_global.local_compl_queue);
-            // MPIDI_PIP_fflush_compl_task(pip_global.local_compl_queue);
-            // MPIDI_PIP_fflush_compl_task(pip_global.local_send_compl_queue);
-            // MPIDI_PIP_fflush_compl_task(pip_global.local_recv_compl_queue);
+            /* find my own task */
+            if (task) {
+                MPIDI_PIP_do_task_copy(task);
+                // MPIDI_PIP_compl_one_task(pip_global.local_compl_queue);
+                // MPIDI_PIP_fflush_compl_task(pip_global.local_compl_queue);
+                // MPIDI_PIP_fflush_compl_task(pip_global.local_send_compl_queue);
+                // MPIDI_PIP_fflush_compl_task(pip_global.local_recv_compl_queue);
+            }
         }
     }
-
     // MPIDI_PIP_fflush_compl_task(pip_global.local_compl_queue);
     // MPIDI_PIP_fflush_compl_task(pip_global.local_send_compl_queue);
     // MPIDI_PIP_fflush_compl_task(pip_global.local_recv_compl_queue);
@@ -370,10 +397,12 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_steal_task()
     MPIDI_PIP_task_t *task = NULL;
     if (victim != pip_global.local_rank) {
 #ifdef MPI_PIP_SHM_TASK_STEAL
-        if (pip_global.shm_in_proc[victim] < pip_global.shm_task_queue[victim]->task_num) {
-            __sync_add_and_fetch(&pip_global.shm_in_proc[victim], 1);
-            MPIDI_PIP_Task_safe_dequeue(pip_global.shm_task_queue[victim], &task);
-            __sync_sub_and_fetch(&pip_global.shm_in_proc[victim], 1);
+        MPIDI_PIP_task_queue_t *victim_queue =
+            &pip_global.shm_task_queue[victim][pip_global.local_numa_id];
+        if (victim_queue->head) {
+            // __sync_add_and_fetch(&pip_global.shm_in_proc[victim], 1);
+            MPIDI_PIP_Task_safe_dequeue(victim_queue, &task);
+            // __sync_sub_and_fetch(&pip_global.shm_in_proc[victim], 1);
             if (task)
                 MPIDI_PIP_do_task_copy(task);
         }

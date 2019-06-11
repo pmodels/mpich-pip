@@ -53,27 +53,25 @@ typedef struct MPIDI_PIP_task_queue {
     int task_num;
 } MPIDI_PIP_task_queue_t;
 
-typedef struct {
+typedef struct MPIDI_PIP_global {
     uint32_t num_local;
     uint32_t local_rank;
-    uint64_t *local_send_counter;
-    uint64_t *shm_send_counter;
-    uint64_t *local_recv_counter;
-    uint64_t *shm_recv_counter;
+    uint32_t numa_max_node;
     uint64_t *shm_in_proc;
-    MPIDI_PIP_task_queue_t *local_task_queue;
+    MPIDI_PIP_task_queue_t *task_queue; // socket aware queue
     MPIDI_PIP_task_queue_t **shm_task_queue;
-    // MPIDI_PIP_task_queue_t *local_recv_compl_queue;
-    // MPIDI_PIP_task_queue_t *local_send_compl_queue;
     MPIDI_PIP_task_queue_t *local_compl_queue;
+    struct MPIDI_PIP_global **shm_pip_global;
     uint64_t copy_size;
     uint64_t try_steal;
     uint64_t suc_steal;
-
+    // int *shm_numa_ids;
     int *esteal_done;
-    int recvQ_empty;
     int *esteal_try;
+    int recvQ_empty;
     int recv_empty;
+    int local_numa_id;
+
 } MPIDI_PIP_global_t;
 
 extern MPIDI_PIP_global_t pip_global;

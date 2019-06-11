@@ -46,7 +46,8 @@ static inline void MPIDI_POSIX_cell_init(MPIDI_POSIX_cell_ptr_t cell, int rank)
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_POSIX_CELL_INIT);
 
     MPIDI_POSIX_SET_REL_NULL(cell->next);
-    memset((void *) &cell->pkt, 0, sizeof(MPIDI_POSIX_pkt_header_t));
+    // printf("sizeof(MPIDI_POSIX_pkt_t) %ld\n", sizeof(MPIDI_POSIX_pkt_t));
+    memset((void *) &cell->pkt, 0, sizeof(MPIDI_POSIX_pkt_t));
     cell->my_rank = rank;
 
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_POSIX_CELL_INIT);

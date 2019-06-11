@@ -100,6 +100,7 @@ typedef struct MPIDI_POSIX_cell {
     int tag;
     int context_id;
     int cell_id;
+    int socket_id;
     MPIR_Request *pending;
 #if MPIDI_POSIX_CACHE_LINE_LEN != 0
     char padding[MPIDI_POSIX_CACHE_LINE_LEN - MPIDI_POSIX_CELL_HEAD_LEN - MPIDI_POSIX_MPICH_HEAD_LEN - 6 * sizeof(int) - sizeof(MPIR_Request *)];       /* should be 64-16-16-16-8 = 8 */

@@ -10,11 +10,13 @@
  */
 #ifndef POSIX_INIT_H_INCLUDED
 #define POSIX_INIT_H_INCLUDED
-
 #include "posix_impl.h"
 #include "ch4_types.h"
 #include "mpidu_shm.h"
 #include <time.h>
+#include <unistd.h>
+#include <sched.h>
+#include <numa.h>
 #include <../pip/pip_pre.h>
 extern MPIR_Object_alloc_t MPIDI_Task_mem;
 /* ------------------------------------------------------- */
@@ -29,37 +31,47 @@ void MPIDI_PIP_init()
     int mpi_errno = MPI_SUCCESS, i, err;
     int num_local, local_rank;
     uint64_t *task_queue_addr;
+    uint64_t *pip_global_addr;
+    // int *numa_ids_array;
     MPIR_Errflag_t errflag = MPIR_ERR_NONE;
     // MPIDI_PIP_task_t *task_dummy, *compl_dummy;
-    MPIR_CHKPMEM_DECL(11);
+    MPIR_CHKPMEM_DECL(7);
 
     pip_global.num_local = num_local = MPIDI_POSIX_mem_region.num_local;
     pip_global.local_rank = local_rank = MPIDI_POSIX_mem_region.local_rank;
-    MPIR_CHKPMEM_MALLOC(pip_global.local_send_counter, uint64_t *,
-                        num_local * sizeof(uint64_t), mpi_errno, "pip_local_send_counter",
-                        MPL_MEM_SHM);
-    MPIR_CHKPMEM_MALLOC(pip_global.shm_send_counter, uint64_t *, num_local * sizeof(uint64_t),
-                        mpi_errno, "pip_shm_send_counter", MPL_MEM_SHM);
-    MPIR_CHKPMEM_MALLOC(pip_global.local_recv_counter, uint64_t *, num_local * sizeof(uint64_t),
-                        mpi_errno, "pip_local_recv_counter", MPL_MEM_SHM);
-    MPIR_CHKPMEM_MALLOC(pip_global.shm_recv_counter, uint64_t *, num_local * sizeof(uint64_t),
-                        mpi_errno, "pip_shm_recv_counter", MPL_MEM_SHM);
 
-    memset(pip_global.local_send_counter, 0, num_local * sizeof(uint64_t));
-    memset(pip_global.shm_send_counter, 0, num_local * sizeof(uint64_t));
-    memset(pip_global.local_recv_counter, 0, num_local * sizeof(uint64_t));
-    memset(pip_global.shm_recv_counter, 0, num_local * sizeof(uint64_t));
+    // MPIR_CHKPMEM_MALLOC(pip_global.local_send_counter, uint64_t *,
+    //                     num_local * sizeof(uint64_t), mpi_errno, "pip_local_send_counter",
+    //                     MPL_MEM_SHM);
+    // MPIR_CHKPMEM_MALLOC(pip_global.shm_send_counter, uint64_t *, num_local * sizeof(uint64_t),
+    //                     mpi_errno, "pip_shm_send_counter", MPL_MEM_SHM);
+    // MPIR_CHKPMEM_MALLOC(pip_global.local_recv_counter, uint64_t *, num_local * sizeof(uint64_t),
+    //                     mpi_errno, "pip_local_recv_counter", MPL_MEM_SHM);
+    // MPIR_CHKPMEM_MALLOC(pip_global.shm_recv_counter, uint64_t *, num_local * sizeof(uint64_t),
+    //                     mpi_errno, "pip_shm_recv_counter", MPL_MEM_SHM);
 
-    MPIR_CHKPMEM_MALLOC(pip_global.local_task_queue, MPIDI_PIP_task_queue_t *,
-                        sizeof(MPIDI_PIP_task_queue_t), mpi_errno, "local_task_queue", MPL_MEM_SHM);
+    // memset(pip_global.local_send_counter, 0, num_local * sizeof(uint64_t));
+    // memset(pip_global.shm_send_counter, 0, num_local * sizeof(uint64_t));
+    // memset(pip_global.local_recv_counter, 0, num_local * sizeof(uint64_t));
+    // memset(pip_global.shm_recv_counter, 0, num_local * sizeof(uint64_t));
+
+    MPIR_CHKPMEM_MALLOC(pip_global.task_queue, MPIDI_PIP_task_queue_t *,
+                        pip_global.numa_max_node * sizeof(MPIDI_PIP_task_queue_t), mpi_errno,
+                        "task_queue", MPL_MEM_SHM);
     MPIR_CHKPMEM_MALLOC(pip_global.shm_task_queue, MPIDI_PIP_task_queue_t **,
                         num_local * sizeof(MPIDI_PIP_task_queue_t *), mpi_errno, "shm_task_queue",
                         MPL_MEM_SHM);
+    MPIR_CHKPMEM_MALLOC(pip_global.shm_pip_global, MPIDI_PIP_global_t **,
+                        num_local * sizeof(MPIDI_PIP_global_t *), mpi_errno, "shm_pip_global",
+                        MPL_MEM_SHM);
+    // MPIR_CHKPMEM_MALLOC(pip_global.shm_numa_ids, int*,
+    //                     num_local * sizeof(int), mpi_errno, "shm_numa_ids",
+    //                     MPL_MEM_SHM);
 
     pip_global.copy_size = 0;
     pip_global.try_steal = 0;
     pip_global.suc_steal = 0;
-    // pip_global.task_num = 0;
+    pip_global.copy_size = 0;
 
     MPIR_CHKPMEM_MALLOC(pip_global.esteal_done, int *,
                         sizeof(int) * num_local, mpi_errno, "esteal_done", MPL_MEM_SHM);
@@ -69,9 +81,16 @@ void MPIDI_PIP_init()
     memset(pip_global.esteal_done, 0, num_local * sizeof(int));
     memset(pip_global.esteal_try, 0, num_local * sizeof(int));
 
-    MPID_Thread_mutex_create(&pip_global.local_task_queue->lock, &err);
-    pip_global.local_task_queue->task_num = 0;
-    pip_global.local_task_queue->head = pip_global.local_task_queue->tail = NULL;
+    for (i = 0; i < pip_global.numa_max_node; ++i) {
+        MPID_Thread_mutex_create(&pip_global.task_queue[i].lock, &err);
+        if (err) {
+            printf("init task_queue[%d] lock error\n", i);
+            exit(1);
+        }
+        pip_global.task_queue[i].task_num = 0;
+        pip_global.task_queue[i].head = pip_global.task_queue[i].tail = NULL;
+    }
+
     // task_dummy = (MPIDI_PIP_task_t *) MPIR_Handle_obj_alloc(&MPIDI_Task_mem);
     // task_dummy->next = NULL;
 
@@ -79,6 +98,10 @@ void MPIDI_PIP_init()
                         sizeof(MPIDI_PIP_task_queue_t), mpi_errno, "local_recv_compl_queue",
                         MPL_MEM_SHM);
     MPID_Thread_mutex_create(&pip_global.local_compl_queue->lock, &err);
+    if (err) {
+        printf("init local_compl_queue lock error\n");
+        exit(1);
+    }
     pip_global.local_compl_queue->task_num = 0;
     pip_global.local_compl_queue->head = pip_global.local_compl_queue->tail = NULL;
 
@@ -117,6 +140,12 @@ void MPIDI_PIP_init()
         if (mpi_errno)
             MPIR_ERR_POP(mpi_errno);
 
+        mpi_errno =
+            MPIDU_shm_seg_alloc(num_local * sizeof(uint64_t),
+                                (void **) &pip_global_addr, MPL_MEM_SHM);
+        if (mpi_errno)
+            MPIR_ERR_POP(mpi_errno);
+
         mpi_errno = MPIDU_shm_seg_alloc(sizeof(uint64_t), (void **) &shm_in_proc_addr, MPL_MEM_SHM);
         if (mpi_errno)
             MPIR_ERR_POP(mpi_errno);
@@ -128,7 +157,9 @@ void MPIDI_PIP_init()
         if (mpi_errno)
             MPIR_ERR_POP(mpi_errno);
 
-        task_queue_addr[local_rank] = (uint64_t) pip_global.local_task_queue;
+        // numa_ids_array[local_rank] = numa_id;
+        task_queue_addr[local_rank] = (uint64_t) pip_global.task_queue;
+        pip_global_addr[local_rank] = (uint64_t) & pip_global;
         if (pip_global.local_rank == 0)
             *shm_in_proc_addr = (uint64_t) pip_global.shm_in_proc;
         mpi_errno = MPIDU_shm_barrier(pip_barrier, num_local);
@@ -143,13 +174,14 @@ void MPIDI_PIP_init()
             // printf("rank %d - get process %d task queue %lx\n", local_rank, i, task_queue_addr[i]);
             // fflush(stdout);
             pip_global.shm_task_queue[i] = (MPIDI_PIP_task_queue_t *) task_queue_addr[i];
+            pip_global.shm_pip_global[i] = (MPIDI_PIP_global_t *) pip_global_addr[i];
         }
 
         mpi_errno = MPIDU_shm_seg_destroy(&pip_memory, num_local);
         if (mpi_errno)
             MPIR_ERR_POP(mpi_errno);
     } else {
-        pip_global.shm_task_queue[0] = pip_global.local_task_queue;
+        pip_global.shm_task_queue[0] = pip_global.task_queue;
     }
 
     srand(time(NULL) / (local_rank + 1));
@@ -177,7 +209,7 @@ static inline int MPIDI_POSIX_mpi_init_hook(int rank, int size, int *n_vnis_prov
     MPIDI_POSIX_queue_t *recv_queues_p = NULL;
     MPIDI_POSIX_queue_t *free_queues_p = NULL;
     MPIDI_av_entry_t *av = NULL;
-    MPIR_CHKPMEM_DECL(9);
+    MPIR_CHKPMEM_DECL(7);
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_POSIX_INIT);
 
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_POSIX_INIT);
@@ -213,7 +245,20 @@ static inline int MPIDI_POSIX_mpi_init_hook(int rank, int size, int *n_vnis_prov
     MPIDI_POSIX_mem_region.local_ranks = local_ranks;
     MPIDI_POSIX_mem_region.local_rank = local_rank;
     MPIDI_POSIX_mem_region.next = NULL;
+    cpu_set_t mask;
+    CPU_ZERO(&mask);
+    CPU_SET(local_rank, &mask);
+    sched_setaffinity(getpid(), sizeof(cpu_set_t), &mask);
 
+    int cpu = sched_getcpu();
+    int numa_id = numa_node_of_cpu(cpu);
+    int max_node = numa_num_task_nodes();
+    // printf("rank %d - cpu id is %d, my numa id is %d, max_node %d\n", local_rank, cpu, numa_id,
+    //        max_node);
+    // fflush(stdout);
+
+    pip_global.local_numa_id = numa_id;
+    pip_global.numa_max_node = max_node;
     /* Request fastboxes region */
     mpi_errno =
         MPIDU_shm_seg_alloc(MAX
@@ -305,6 +350,7 @@ static inline int MPIDI_POSIX_mpi_init_hook(int rank, int size, int *n_vnis_prov
 
     /* Init and enqueue our free cells */
     for (i = 0; i < MPIDI_POSIX_NUM_CELLS; ++i) {
+        MPIDI_POSIX_mem_region.Elements[i].socket_id = numa_id;
         MPIDI_POSIX_cell_init(&(MPIDI_POSIX_mem_region.Elements[i]), rank);
         MPIDI_POSIX_queue_enqueue(MPIDI_POSIX_mem_region.FreeQ[rank],
                                   &(MPIDI_POSIX_mem_region.Elements[i]));
@@ -385,9 +431,9 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_mpi_finalize_hook(void)
     int mpi_errno = MPI_SUCCESS;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_POSIX_FINALIZE);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_POSIX_FINALIZE);
-    char results[1024];
-    char buffer[128];
-    sprintf(results, "rank %d - copy size %ld", pip_global.local_rank, pip_global.copy_size);
+    // char results[1024];
+    // char buffer[128];
+    // sprintf(results, "rank %d - copy size %ld", pip_global.local_rank, pip_global.copy_size);
     // fflush(stdout);
     // int i;
     // for (i = 0; i < pip_global.num_local; i++) {
@@ -395,8 +441,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_mpi_finalize_hook(void)
     //     strcat(results, buffer);
     // }
 
-    printf("%s\n", results);
-    fflush(stdout);
+    // printf("%s\n", results);
+    // fflush(stdout);
     /* local barrier */
     mpi_errno = MPIDU_shm_barrier(MPIDI_POSIX_mem_region.barrier, MPIDI_POSIX_mem_region.num_local);
 

@@ -13,10 +13,16 @@
 
 MPIDI_PIP_global_t pip_global;
 
-MPIDI_PIP_task_t MPIDI_Task_direct[MPIDI_TASK_PREALLOC] = { {0}
-};
+MPIDI_PIP_task_t MPIDI_Task_direct[MPIDI_TASK_PREALLOC] = { 0 };
+
+DLOOP_Segment MPIDI_Segment_direct[MPIDI_SEGMENT_PREALLOC] = { 0 };
 
 MPIR_Object_alloc_t MPIDI_Task_mem = {
     0, 0, 0, 0, MPIDI_TASK, sizeof(MPIDI_PIP_task_t), MPIDI_Task_direct,
     MPIDI_TASK_PREALLOC
+};
+
+MPIR_Object_alloc_t MPIDI_Segment_mem = {
+    0, 0, 0, 0, MPIDI_SEGMENT, sizeof(DLOOP_Segment), MPIDI_Segment_direct,
+    MPIDI_SEGMENT_PREALLOC
 };

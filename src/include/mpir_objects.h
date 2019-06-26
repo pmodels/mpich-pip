@@ -158,6 +158,7 @@ typedef enum MPII_Object_kind {
     MPIR_WORKQ_ELEM = 0xe,      /* Work queue element, currently only meaningful in CH4 */
     MPIR_GREQ_CLASS = 0xf,
     MPIDI_TASK = 0x10,
+    MPIDI_SEGMENT = 0x11
 } MPII_Object_kind;
 
 

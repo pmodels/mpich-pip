@@ -35,23 +35,23 @@ void MPIDI_PIP_init()
     // int *numa_ids_array;
     MPIR_Errflag_t errflag = MPIR_ERR_NONE;
     // MPIDI_PIP_task_t *task_dummy, *compl_dummy;
-    MPIR_CHKPMEM_DECL(7);
+    MPIR_CHKPMEM_DECL(9);
 
     pip_global.num_local = num_local = MPIDI_POSIX_mem_region.num_local;
     pip_global.local_rank = local_rank = MPIDI_POSIX_mem_region.local_rank;
 
-    // MPIR_CHKPMEM_MALLOC(pip_global.local_send_counter, uint64_t *,
-    //                     num_local * sizeof(uint64_t), mpi_errno, "pip_local_send_counter",
-    //                     MPL_MEM_SHM);
-    // MPIR_CHKPMEM_MALLOC(pip_global.shm_send_counter, uint64_t *, num_local * sizeof(uint64_t),
-    //                     mpi_errno, "pip_shm_send_counter", MPL_MEM_SHM);
+    MPIR_CHKPMEM_MALLOC(pip_global.local_send_counter, uint64_t *,
+                        num_local * sizeof(uint64_t), mpi_errno, "pip_local_send_counter",
+                        MPL_MEM_SHM);
+    MPIR_CHKPMEM_MALLOC(pip_global.shm_send_counter, uint64_t *, num_local * sizeof(uint64_t),
+                        mpi_errno, "pip_shm_send_counter", MPL_MEM_SHM);
     // MPIR_CHKPMEM_MALLOC(pip_global.local_recv_counter, uint64_t *, num_local * sizeof(uint64_t),
     //                     mpi_errno, "pip_local_recv_counter", MPL_MEM_SHM);
     // MPIR_CHKPMEM_MALLOC(pip_global.shm_recv_counter, uint64_t *, num_local * sizeof(uint64_t),
     //                     mpi_errno, "pip_shm_recv_counter", MPL_MEM_SHM);
 
-    // memset(pip_global.local_send_counter, 0, num_local * sizeof(uint64_t));
-    // memset(pip_global.shm_send_counter, 0, num_local * sizeof(uint64_t));
+    memset(pip_global.local_send_counter, 0, num_local * sizeof(uint64_t));
+    memset(pip_global.shm_send_counter, 0, num_local * sizeof(uint64_t));
     // memset(pip_global.local_recv_counter, 0, num_local * sizeof(uint64_t));
     // memset(pip_global.shm_recv_counter, 0, num_local * sizeof(uint64_t));
 

@@ -355,8 +355,9 @@ typedef struct DLOOP_Dataloop_stackelm {
   Should this have an id for allocation and similarity purposes?
   S*/
 typedef struct DLOOP_Segment {
+    MPIR_OBJECT_HEADER;
     void *ptr;                  /* pointer to datatype buffer */
-    DLOOP_Handle handle;
+    DLOOP_Handle handle_dt;
     DLOOP_Offset stream_off;    /* next offset into data stream resulting from datatype
                                  * processing.  in other words, how many bytes have
                                  * we created/used by parsing so far?  that amount + 1.

@@ -313,7 +313,7 @@ int MPIR_Segment_init(const DLOOP_Buffer buf,
     DLOOP_Assert(depth < (DLOOP_MAX_DATATYPE_DEPTH));
 
     /* initialize the rest of the segment values */
-    segp->handle = handle;
+    segp->handle_dt = handle;
     segp->ptr = (DLOOP_Buffer) buf;
     segp->stream_off = 0;
     segp->cur_sp = 0;

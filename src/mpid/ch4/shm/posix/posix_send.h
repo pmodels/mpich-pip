@@ -61,8 +61,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_do_isend(const void *buf,
     MPIDI_POSIX_REQUEST(sreq)->segment_ptr = NULL;
 
     if (!dt_contig) {
-        printf("rank %d - pack segment init\n", MPIDI_POSIX_mem_region.local_rank);
-        fflush(stdout);
+        // printf("rank %d - pack segment init\n", MPIDI_POSIX_mem_region.local_rank);
+        // fflush(stdout);
         MPIDI_POSIX_REQUEST(sreq)->segment_ptr = MPIR_Segment_alloc();
         MPIR_ERR_CHKANDJUMP1((MPIDI_POSIX_REQUEST(sreq)->segment_ptr == NULL), mpi_errno,
                              MPI_ERR_OTHER, "**nomem", "**nomem %s", "MPIR_Segment_alloc");
@@ -117,7 +117,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_mpi_send(const void *buf, MPI_Aint coun
         int grank = MPIDI_CH4U_rank_to_lpid(rank, comm);
 
         /* Try freeQ */
-        if (MPIDI_POSIX_sendq.head == NULL && !MPIDI_POSIX_queue_empty(MPIDI_POSIX_mem_region.my_freeQ)) {
+        if (MPIDI_POSIX_sendq.head == NULL &&
+            !MPIDI_POSIX_queue_empty(MPIDI_POSIX_mem_region.my_freeQ)) {
             MPIDI_POSIX_cell_ptr_t cell;
             // MPIDI_PIP_fflush_task();
 

@@ -15,31 +15,33 @@
 #include <../posix/posix_datatypes.h>
 
 #define MPIDI_TASK_PREALLOC 64
-#define MPIDI_MAX_TASK_THREASHOLD 62
+#define MPIDI_SEGMENT_PREALLOC 64
+#define MPIDI_MAX_TASK_THREASHOLD 63
 
 struct MPIDI_PIP_task_queue;
 
 /* Use cell->pkt.mpich.type = MPIDI_POSIX_TYPEEAGER to judge the complete transfer */
 typedef struct MPIDI_PIP_task {
     MPIR_OBJECT_HEADER;
-    MPIR_Request *req;
-    int rank;
+    // int rank;
     int compl_flag;
     MPI_Aint asym_addr;
     // union {
     MPIDI_POSIX_cell_ptr_t cell;
-    //     MPIR_Request *unexp_req;
+    DLOOP_Segment *segp;
+    size_t segment_first;
+    MPIR_Request *unexp_req;
     // };
 
-    // volatile uint64_t *cur_task_id;
-    // uint64_t task_id;
-    // int send_flag;
+    volatile uint64_t *cur_task_id;
+    uint64_t task_id;
+    int send_flag;
 
     // int *completion_count;
     // MPIDI_POSIX_queue_ptr_t cellQ;
     MPIDI_POSIX_queue_ptr_t cell_queue;
     // struct MPIDI_PIP_task_queue *compl_queue;
-    void *src_first;
+    void *src;
     void *dest;
     size_t data_sz;
     struct MPIDI_PIP_task *next;
@@ -58,6 +60,8 @@ typedef struct MPIDI_PIP_global {
     uint32_t local_rank;
     uint32_t numa_max_node;
     uint64_t *shm_in_proc;
+    uint64_t *local_send_counter;
+    uint64_t *shm_send_counter;
     MPIDI_PIP_task_queue_t *task_queue; // socket aware queue
     MPIDI_PIP_task_queue_t **shm_task_queue;
     MPIDI_PIP_task_queue_t *local_compl_queue;

@@ -67,8 +67,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_do_irecv(void *buf,
     MPIR_STATUS_SET_COUNT(rreq->status, 0);
 
     if (!dt_contig) {
-        printf("rank %d - receive with non-contig datatype\n", MPIDI_POSIX_mem_region.local_rank);
-        fflush(stdout);
+        // printf("rank %d - receive with non-contig datatype\n", MPIDI_POSIX_mem_region.local_rank);
+        // fflush(stdout);
         MPIDI_POSIX_REQUEST(rreq)->segment_ptr = MPIR_Segment_alloc();
         MPIR_ERR_CHKANDJUMP1((MPIDI_POSIX_REQUEST(rreq)->segment_ptr == NULL), mpi_errno,
                              MPI_ERR_OTHER, "**nomem", "**nomem %s", "MPIR_Segment_alloc");
@@ -258,7 +258,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_mpi_imrecv(void *buf,
             rreq->status.MPI_TAG = sreq->status.MPI_TAG;
             count = MPIR_STATUS_GET_COUNT(rreq->status) + (MPI_Count) data_sz;
             MPIR_STATUS_SET_COUNT(rreq->status, count);
-        } else if (MPIDI_POSIX_REQUEST(sreq)->type == MPIDI_POSIX_TYPELMT) {
+        } else if (MPIDI_POSIX_REQUEST(sreq)->type == MPIDI_POSIX_TYPELMT ||
+                   MPIDI_POSIX_REQUEST(sreq)->type == MPIDI_POSIX_TYPELMT_LAST) {
             /* long message */
             if (MPIDI_POSIX_REQUEST(rreq)->segment_ptr) {
                 /* non-contig */

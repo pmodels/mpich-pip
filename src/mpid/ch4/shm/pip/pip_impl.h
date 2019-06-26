@@ -14,6 +14,8 @@
 
 #include "pip_pre.h"
 
+extern MPIR_Object_alloc_t MPIDI_Segment_mem;
+
 #undef FCNAME
 #define FCNAME MPL_QUOTE(MPIDI_PIP_Task_safe_enqueue)
 MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_Task_safe_enqueue(MPIDI_PIP_task_queue_t * task_queue,
@@ -32,18 +34,6 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_Task_safe_enqueue(MPIDI_PIP_task_queue_t
     }
     task_queue->task_num++;
     MPID_Thread_mutex_unlock(&task_queue->lock, &err);
-
-    // if (err)
-    //     printf("MPIDI_PIP_Task_safe_enqueue lock error %d\n", err);
-
-    // MPIDI_PIP_task_t *old_tail =
-    //     (MPIDI_PIP_task_t *) __sync_lock_test_and_set(&task_queue->tail, task);
-    // old_tail->next = task;
-
-
-    // printf("rank %d - after enqueue, task_queue %p has task num %d\n", pip_global.local_rank, task_queue,
-    //        task_queue->task_num);
-    // fflush(stdout);
     return;
 }
 
@@ -55,10 +45,7 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_Task_safe_dequeue(MPIDI_PIP_task_queue_t
 {
     int err;
 
-    // if (err)
-    //     printf("MPIDI_PIP_Task_safe_dequeue lock error %d\n", err);
     MPIDI_PIP_task_t *old_head;
-    // if (old_head) {
     MPID_Thread_mutex_lock(&task_queue->lock, &err);
     old_head = task_queue->head;
     if (old_head) {
@@ -68,38 +55,8 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_Task_safe_dequeue(MPIDI_PIP_task_queue_t
         task_queue->task_num--;
     }
     MPID_Thread_mutex_unlock(&task_queue->lock, &err);
-    // }
-
     *task = old_head;
 
-    // printf("rank %d - after dequeue, task_queue %p has task num %d\n", pip_global.local_rank, task_queue,
-    //        task_queue->task_num);
-    // fflush(stdout);
-
-    // MPIDI_PIP_task_t *old_head;
-    // MPIDI_PIP_task_t *old_tail;
-    // MPIDI_PIP_task_t *new_head;
-    // do {
-    //   retry:
-    //     old_head = task_queue->head->next;
-    //     if (old_head == NULL || task_queue->tail == task_queue->head) {
-    //         old_head = NULL;
-    //         break;
-    //     }
-    //     new_head = old_head->next;
-    //     if (new_head == NULL) {
-    //         if (!__sync_bool_compare_and_swap(&task_queue->tail, old_head, task_queue->head)) {
-    //             /* unsuccessful, others have inserted a new task or has been reset to head by another process */
-    //             goto retry;
-    //         } else {
-    //             /* set tail to dummy task */
-    //             __sync_bool_compare_and_swap(&task_queue->head->next, old_head, NULL);
-    //             break;
-    //         }
-    //     }
-    // } while (!__sync_bool_compare_and_swap(&task_queue->head->next, old_head, new_head));
-
-    // *task = old_head;
     return;
 }
 
@@ -109,33 +66,17 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_Task_safe_dequeue(MPIDI_PIP_task_queue_t
 MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_Compl_task_enqueue(MPIDI_PIP_task_queue_t * task_queue,
                                                           MPIDI_PIP_task_t * task)
 {
-    // int err = 0;
     int mpi_errno = MPI_SUCCESS, err;
 
-    // task->next = NULL;
     if (task_queue->tail) {
         task_queue->tail->compl_next = task;
         task_queue->tail = task;
     } else {
         task_queue->head = task_queue->tail = task;
     }
-    // MPID_Thread_mutex_lock(&task_queue->lock, &err);
+
     task_queue->task_num++;
-    // *task->cur_task_id = task->task_id + 1;
 
-    // MPID_Thread_mutex_unlock(&task_queue->lock, &err);
-
-    // if (err)
-    //     printf("MPIDI_PIP_Task_safe_enqueue lock error %d\n", err);
-
-    // MPIDI_PIP_task_t *old_tail =
-    //     (MPIDI_PIP_task_t *) __sync_lock_test_and_set(&task_queue->tail, task);
-    // old_tail->next = task;
-
-
-    // printf("rank %d - after enqueue, task_queue %p has task num %d\n", pip_global.local_rank, task_queue,
-    //        task_queue->task_num);
-    // fflush(stdout);
     return mpi_errno;
 }
 
@@ -145,61 +86,13 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_Compl_task_delete_head(MPIDI_PIP_task_que
 {
     int mpi_errno = MPI_SUCCESS, err;
 
-    // if (err)
-    //     printf("MPIDI_PIP_Task_safe_dequeue lock error %d\n", err);
     MPIDI_PIP_task_t *old_head = task_queue->head;
-    // if (old_head) {
-    // if (old_head) {
-    //     if (old_head->next) {
-    //         task_queue->head->next = old_head->next;
-    //         task_queue->task_num--;
-    //     } else {
     if (old_head) {
         task_queue->head = old_head->compl_next;
         if (task_queue->head == NULL)
             task_queue->tail = NULL;
         task_queue->task_num--;
     }
-    // MPID_Thread_mutex_lock(&task_queue->lock, &err);
-    // old_head = task_queue->head->next;
-    // if (old_head) {
-
-    // task_queue->task_num--;
-    // }
-    // MPID_Thread_mutex_unlock(&task_queue->lock, &err);
-
-    //     }
-    // }
-
-
-    // printf("rank %d - after dequeue, task_queue %p has task num %d\n", pip_global.local_rank, task_queue,
-    //        task_queue->task_num);
-    // fflush(stdout);
-
-    // MPIDI_PIP_task_t *old_head;
-    // MPIDI_PIP_task_t *old_tail;
-    // MPIDI_PIP_task_t *new_head;
-    // do {
-    //   retry:
-    //     old_head = task_queue->head->next;
-    //     if (old_head == NULL || task_queue->tail == task_queue->head) {
-    //         old_head = NULL;
-    //         break;
-    //     }
-    //     new_head = old_head->next;
-    //     if (new_head == NULL) {
-    //         if (!__sync_bool_compare_and_swap(&task_queue->tail, old_head, task_queue->head)) {
-    //             /* unsuccessful, others have inserted a new task or has been reset to head by another process */
-    //             goto retry;
-    //         } else {
-    //             /* set tail to dummy task */
-    //             __sync_bool_compare_and_swap(&task_queue->head->next, old_head, NULL);
-    //             break;
-    //         }
-    //     }
-    // } while (!__sync_bool_compare_and_swap(&task_queue->head->next, old_head, new_head));
-
-    // *task = old_head;
     return mpi_errno;
 }
 
@@ -210,23 +103,17 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_fflush_compl_task(MPIDI_PIP_task_queue_t
 {
     MPIDI_PIP_task_t *task = compl_queue->head;
     while (task && task->compl_flag) {
-        // if (task->compl_flag) {
         MPIDI_PIP_Compl_task_delete_head(compl_queue);
-        // MPIDI_POSIX_queue_enqueue(task->cell_queue, task->cell);
+        if (task->segp)
+            MPIR_Handle_obj_free(&MPIDI_Segment_mem, task->segp);
+        if (task->unexp_req) {
+            MPIR_Request *sreq = task->unexp_req;
+            MPIDI_POSIX_REQUEST(sreq)->pending = NULL;
+            MPL_free(MPIDI_POSIX_REQUEST(sreq)->user_buf);
+            MPIDI_POSIX_REQUEST_COMPLETE(sreq);
+        }
         MPIR_Handle_obj_free(&MPIDI_Task_mem, task);
-        // }
-
         task = compl_queue->head;
-        // if (task) {
-        //      // if (MPIDI_POSIX_mem_region.local_rank == 1)
-        //      // printf("rank %d - complete task %p BEGIN\n", MPIDI_POSIX_mem_region.local_rank, task);
-        //      // fflush(stdout);
-        //      MPIDI_PIP_do_task_compl(task);
-        //      // if (MPIDI_POSIX_mem_region.local_rank == 1)
-        //      // printf("rank %d - complete task %p END\n", MPIDI_POSIX_mem_region.local_rank, task);
-        //      // fflush(stdout);
-        // } else
-        //      break;
     }
     return;
 }
@@ -237,40 +124,39 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_fflush_compl_task(MPIDI_PIP_task_queue_t
 MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_do_task_copy(MPIDI_PIP_task_t * task)
 {
     int mpi_errno = MPI_SUCCESS;
-    // int task_id = task->task_id;
+    int task_id = task->task_id;
     // void *recv_buffer;
-    MPIDI_POSIX_cell_ptr_t cell = task->cell;
+
 
     // struct timespec start, end;
     // clock_gettime(CLOCK_MONOTONIC, &start);
-
-    MPIR_Request *req = task->req;
-    if (MPIDI_POSIX_REQUEST(req)->segment_ptr) {
-        printf("rank %d - dealing with non-contig data right now\n", pip_global.local_rank);
-        fflush(stdout);
-        // size_t last = MPIDI_POSIX_REQUEST(req)->segment_first + task->data_sz;
-        // MPIR_Segment_pack(MPIDI_POSIX_REQUEST(req)->segment_ptr,
-        //                   MPIDI_POSIX_REQUEST(req)->segment_first, (MPI_Aint *) & last,
-        //                   recv_buffer);
-        // MPIDI_POSIX_REQUEST(req)->segment_first = last;
+    if (task->segp) {
+        DLOOP_Segment *segp = task->segp;
+        size_t last = task->segment_first + task->data_sz;
+        if (task->send_flag) {
+            MPIR_Segment_pack(segp, task->segment_first, (MPI_Aint *) & last, task->dest);
+        } else {
+            MPIR_Segment_unpack(segp, task->segment_first, (MPI_Aint *) & last, task->src);
+        }
         /* non-contig */
     } else {
         /* contig */
-        // printf("rank %d - send data size %ld, task %p, src %p, dest %p\n", pip_global.local_rank,
-        //        task->data_sz, task, task->src_first, task->dest);
-        // fflush(stdout);
-        MPIR_Memcpy(task->dest, task->src_first, task->data_sz);
+        MPIR_Memcpy(task->dest, task->src, task->data_sz);
     }
     pip_global.copy_size += task->data_sz;
 
     // task->next = NULL;
+    MPIDI_POSIX_cell_ptr_t cell = task->cell;
+    if (task->send_flag) {
+        while (task_id != *task->cur_task_id);
+        MPIDI_POSIX_PIP_queue_enqueue(task->cell_queue, cell, task->asym_addr);
+        *task->cur_task_id = task_id + 1;
+        OPA_write_barrier();
+    } else {
+        if (cell)
+            MPIDI_POSIX_PIP_queue_enqueue(task->cell_queue, cell, task->asym_addr);
+    }
 
-    // while (task_id != *task->cur_task_id);
-    // OPA_write_barrier();
-    // if (task->send_flag){
-    MPIDI_POSIX_PIP_queue_enqueue(task->cell_queue, cell, task->asym_addr);
-    // }
-    OPA_write_barrier();
     // *task->cur_task_id = task_id + 1;
     // OPA_write_barrier();
     // clock_gettime(CLOCK_MONOTONIC, &end);
@@ -280,33 +166,6 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_do_task_copy(MPIDI_PIP_task_t * task)
     // fflush(stdout);
     task->compl_flag = 1;
 
-    // MPIDI_PIP_Compl_task_safe_enqueue(task->compl_queue, task);
-    // *task->cur_task_id = task_id + 1;
-
-
-    // if (cell->pkt.mpich.type != MPIDI_POSIX_TYPELMT) {
-    //     MPIDI_PIP_task_request_complete(task->MPIR_Request_mem, req);
-    //     (*task->completion_count)++;
-    // }
-
-// if (in_cell) {
-//     cell->pending = NULL;
-//     // printf("rank %d - receive size %ld, task %p, freeQ %p\n", pip_global.local_rank, task->data_sz, task, task->cellQ);
-//     // fflush(stdout);
-//     MPIDI_POSIX_queue_enqueue(task->cellQ, cell);
-// } else {
-//     MPIR_Request *unexp_req = task->unexp_req;
-//     // MPIDI_POSIX_REQUEST(unexp_req)->pending = NULL;
-//     MPL_free(MPIDI_POSIX_REQUEST(unexp_req)->user_buf);
-//     MPIDI_PIP_task_request_complete(task->MPIR_Request_mem, unexp_req);
-// }
-
-// if (type == MPIDI_POSIX_TYPEEAGER) {
-//     MPIDI_PIP_task_request_complete(task->MPIR_Request_mem, req);
-//     (*task->completion_count)++;
-// }
-
-// MPIR_Handle_obj_free(task->MPIDI_Task_mem, task);
     return mpi_errno;
 }
 
@@ -317,21 +176,16 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_compl_one_task(MPIDI_PIP_task_queue_t * 
 {
     MPIDI_PIP_task_t *task = compl_queue->head;
     if (task && task->compl_flag) {
-        // if (task->compl_flag) {
         MPIDI_PIP_Compl_task_delete_head(compl_queue);
-        // MPIDI_POSIX_queue_enqueue(task->cell_queue, task->cell);
+        if (task->segp)
+            MPIR_Handle_obj_free(&MPIDI_Segment_mem, task->segp);
+        if (task->unexp_req) {
+            MPIR_Request *sreq = task->unexp_req;
+            MPIDI_POSIX_REQUEST(sreq)->pending = NULL;
+            MPL_free(MPIDI_POSIX_REQUEST(sreq)->user_buf);
+            MPIDI_POSIX_REQUEST_COMPLETE(sreq);
+        }
         MPIR_Handle_obj_free(&MPIDI_Task_mem, task);
-        // }
-        // if (task) {
-        //      // if (MPIDI_POSIX_mem_region.local_rank == 1)
-        //      // printf("rank %d - complete task %p BEGIN\n", MPIDI_POSIX_mem_region.local_rank, task);
-        //      // fflush(stdout);
-        //      MPIDI_PIP_do_task_compl(task);
-        //      // if (MPIDI_POSIX_mem_region.local_rank == 1)
-        //      // printf("rank %d - complete task %p END\n", MPIDI_POSIX_mem_region.local_rank, task);
-        //      // fflush(stdout);
-        // } else
-        //      break;
     }
     return;
 }
@@ -345,19 +199,12 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_exec_task(MPIDI_PIP_task_queue_t * task_
 
     if (task_queue->head) {
         MPIDI_PIP_Task_safe_dequeue(task_queue, &task);
-
         /* find my own task */
         if (task) {
             MPIDI_PIP_do_task_copy(task);
-            // MPIDI_PIP_compl_one_task(pip_global.local_compl_queue);
             MPIDI_PIP_compl_one_task(pip_global.local_compl_queue);
-            // MPIDI_PIP_fflush_compl_task(pip_global.local_send_compl_queue);
-            // MPIDI_PIP_fflush_compl_task(pip_global.local_recv_compl_queue);
         }
     }
-    // MPIDI_PIP_fflush_compl_task(pip_global.local_compl_queue);
-    // MPIDI_PIP_fflush_compl_task(pip_global.local_send_compl_queue);
-    // MPIDI_PIP_fflush_compl_task(pip_global.local_recv_compl_queue);
     return;
 }
 
@@ -371,20 +218,12 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_fflush_task()
     for (i = 0; i < pip_global.numa_max_node; ++i) {
         while (pip_global.task_queue[i].head) {
             MPIDI_PIP_Task_safe_dequeue(&pip_global.task_queue[i], &task);
-
             /* find my own task */
             if (task) {
                 MPIDI_PIP_do_task_copy(task);
-                // MPIDI_PIP_compl_one_task(pip_global.local_compl_queue);
-                // MPIDI_PIP_fflush_compl_task(pip_global.local_compl_queue);
-                // MPIDI_PIP_fflush_compl_task(pip_global.local_send_compl_queue);
-                // MPIDI_PIP_fflush_compl_task(pip_global.local_recv_compl_queue);
             }
         }
     }
-    // MPIDI_PIP_fflush_compl_task(pip_global.local_compl_queue);
-    // MPIDI_PIP_fflush_compl_task(pip_global.local_send_compl_queue);
-    // MPIDI_PIP_fflush_compl_task(pip_global.local_recv_compl_queue);
     return;
 }
 

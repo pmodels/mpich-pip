@@ -24,11 +24,12 @@ typedef struct {
     int rank;
     int tag;
     int context_id;
-    union {
-        int cur_cell_id;
-        int cell_id;
-    };
+    // union {
+    //     int cur_cell_id;
+    //     int cell_id;
+    // };
     int socket_id;
+    uint32_t addr_offset;
     char *user_buf;
     size_t data_sz;
     int type;

@@ -33,8 +33,8 @@ typedef struct MPIDI_PIP_task {
     MPIR_Request *unexp_req;
     // };
 
-    volatile uint64_t *cur_task_id;
-    uint64_t task_id;
+    // volatile uint64_t *cur_task_id;
+    // uint64_t task_id;
     int send_flag;
 
     // int *completion_count;

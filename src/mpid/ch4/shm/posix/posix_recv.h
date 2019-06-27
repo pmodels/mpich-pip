@@ -243,15 +243,17 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_mpi_imrecv(void *buf,
 
             if (MPIDI_POSIX_REQUEST(rreq)->segment_ptr) {
                 /* non-contig */
-                size_t last = MPIDI_POSIX_REQUEST(rreq)->segment_first + data_sz;
+                size_t first = MPIDI_POSIX_REQUEST(sreq)->addr_offset;
+                size_t last = first + data_sz;
                 MPIR_Segment_unpack(MPIDI_POSIX_REQUEST(rreq)->segment_ptr,
-                                    MPIDI_POSIX_REQUEST(rreq)->segment_first, (MPI_Aint *) & last,
-                                    send_buffer);
+                                    first, (MPI_Aint *) & last, send_buffer);
                 MPIR_Segment_free(MPIDI_POSIX_REQUEST(rreq)->segment_ptr);
             } else
                 /* contig */
-            if (send_buffer)
-                MPIR_Memcpy(recv_buffer, (void *) send_buffer, data_sz);
+            if (send_buffer) {
+                MPIR_Memcpy(recv_buffer + MPIDI_POSIX_REQUEST(sreq)->addr_offset,
+                            (void *) send_buffer, data_sz);
+            }
 
             /* set status */
             rreq->status.MPI_SOURCE = sreq->status.MPI_SOURCE;
@@ -263,19 +265,19 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_mpi_imrecv(void *buf,
             /* long message */
             if (MPIDI_POSIX_REQUEST(rreq)->segment_ptr) {
                 /* non-contig */
-                size_t last =
-                    MPIDI_POSIX_REQUEST(rreq)->segment_first + MPIDI_POSIX_EAGER_THRESHOLD;
+                size_t first = MPIDI_POSIX_REQUEST(sreq)->addr_offset;
+                size_t last = first + MPIDI_POSIX_EAGER_THRESHOLD;
                 MPIR_Segment_unpack(MPIDI_POSIX_REQUEST(rreq)->segment_ptr,
-                                    MPIDI_POSIX_REQUEST(rreq)->segment_first, (MPI_Aint *) & last,
-                                    send_buffer);
+                                    first, (MPI_Aint *) & last, send_buffer);
                 MPIDI_POSIX_REQUEST(rreq)->segment_first = last;
             } else
                 /* contig */
             if (send_buffer)
-                MPIR_Memcpy(recv_buffer, (void *) send_buffer, MPIDI_POSIX_EAGER_THRESHOLD);
+                MPIR_Memcpy(recv_buffer + MPIDI_POSIX_REQUEST(sreq)->addr_offset,
+                            (void *) send_buffer, MPIDI_POSIX_EAGER_THRESHOLD);
 
             MPIDI_POSIX_REQUEST(rreq)->data_sz -= MPIDI_POSIX_EAGER_THRESHOLD;
-            MPIDI_POSIX_REQUEST(rreq)->user_buf += MPIDI_POSIX_EAGER_THRESHOLD;
+            // MPIDI_POSIX_REQUEST(rreq)->user_buf += MPIDI_POSIX_EAGER_THRESHOLD;
             count = MPIR_STATUS_GET_COUNT(rreq->status) + (MPI_Count) MPIDI_POSIX_EAGER_THRESHOLD;
             MPIR_STATUS_SET_COUNT(rreq->status, count);
         }

@@ -124,10 +124,8 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_fflush_compl_task(MPIDI_PIP_task_queue_t
 MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_do_task_copy(MPIDI_PIP_task_t * task)
 {
     int mpi_errno = MPI_SUCCESS;
-    int task_id = task->task_id;
+    // int task_id = task->task_id;
     // void *recv_buffer;
-
-
     // struct timespec start, end;
     // clock_gettime(CLOCK_MONOTONIC, &start);
     if (task->segp) {
@@ -147,15 +145,17 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_do_task_copy(MPIDI_PIP_task_t * task)
 
     // task->next = NULL;
     MPIDI_POSIX_cell_ptr_t cell = task->cell;
-    if (task->send_flag) {
-        while (task_id != *task->cur_task_id);
+    // if (task->send_flag) {
+    //     // while (task_id != *task->cur_task_id);
+    //     MPIDI_POSIX_PIP_queue_enqueue(task->cell_queue, cell, task->asym_addr);
+    //     // *task->cur_task_id = task_id + 1;
+    //     // OPA_write_barrier();
+    // } else {
+    if (cell)
         MPIDI_POSIX_PIP_queue_enqueue(task->cell_queue, cell, task->asym_addr);
-        *task->cur_task_id = task_id + 1;
+    else
         OPA_write_barrier();
-    } else {
-        if (cell)
-            MPIDI_POSIX_PIP_queue_enqueue(task->cell_queue, cell, task->asym_addr);
-    }
+    // }
 
     // *task->cur_task_id = task_id + 1;
     // OPA_write_barrier();

@@ -27,6 +27,8 @@
 /* constants                                            */
 /* ---------------------------------------------------- */
 #define MPIDI_POSIX_EAGER_THRESHOLD MPIDI_POSIX_DATA_LEN
+#define MPIDI_POSIX_EAGER_THRESHOLD_32KB MPIDI_POSIX_DATA_LEN
+#define MPIDI_POSIX_CELL_SWITCH_THRESHOLD 536870912     /* 512KB switch to 64KB cell size */
 #define MPIDI_POSIX_EAGER_THRESHOLD_2TIME (MPIDI_POSIX_DATA_LEN << 1)
 #define MPIDI_POSIX_TYPESTANDARD    0
 #define MPIDI_POSIX_TYPEEAGER       1

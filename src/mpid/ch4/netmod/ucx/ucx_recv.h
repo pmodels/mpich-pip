@@ -20,12 +20,26 @@ static inline void MPIDI_UCX_recv_cmpl_cb(void *request, ucs_status_t status,
 {
     MPIDI_UCX_ucp_request_t *ucp_request = (MPIDI_UCX_ucp_request_t *) request;
     MPIR_Request *rreq = NULL;
-
+    MPIR_Request *shm_rreq = NULL;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_UCX_RECV_CMPL_CB);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_UCX_RECV_CMPL_CB);
 
     if (ucp_request->req) {
+        int mpi_errno = MPI_SUCCESS;
         rreq = ucp_request->req;
+        shm_rreq = MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(rreq);
+        if(shm_rreq){
+            MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(shm_rreq) = NULL;
+            MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(rreq) = NULL;
+            mpi_errno = MPIDI_SHM_mpi_cancel_recv(shm_rreq);
+            if(mpi_errno != MPI_SUCCESS){
+                /* this exit is too harsh, need to fix it in production-level code */
+                printf("cancel shm mpi recv failed, shm_rreq %p\n", shm_rreq);
+                fflush(stdout);
+                exit(1);
+            }
+            
+        }
         MPIDI_CH4U_request_complete(rreq);
         ucp_request->req = NULL;
         ucp_request_release(ucp_request);
@@ -49,6 +63,9 @@ static inline void MPIDI_UCX_recv_cmpl_cb(void *request, ucs_status_t status,
         MPIR_STATUS_SET_COUNT(rreq->status, count);
     }
 
+    if(shm_rreq && MPIR_STATUS_GET_CANCEL_BIT(shm_rreq->status)){
+        shm_rreq->status = rreq->status;
+    }
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_UCX_RECV_CMPL_CB);
 }
 

@@ -391,7 +391,7 @@ if test "${enable_ch4_direct}" = "default" ; then
     # ucx can only choose direct netmod because it does not handle any_src
     # receive when both nemod and shared memory are used.
     if test "${ch4_netmods}" = "ucx" ; then
-        enable_ch4_direct=netmod
+        enable_ch4_direct=auto
     else
         enable_ch4_direct=auto
     fi

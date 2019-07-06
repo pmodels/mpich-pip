@@ -330,7 +330,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_mpi_cancel_recv(MPIR_Request * rreq)
 {
     MPIR_Request *req = MPIDI_POSIX_recvq_posted.head;
     MPIR_Request *prev_req = NULL;
-
+    int mpi_errno = MPI_SUCCESS;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_POSIX_MPI_CANCEL_RECV);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_POSIX_MPI_CANCEL_RECV);
 
@@ -352,6 +352,11 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_mpi_cancel_recv(MPIR_Request * rreq)
 
             MPIR_STATUS_SET_CANCEL_BIT(req->status, TRUE);
             MPIR_STATUS_SET_COUNT(req->status, 0);
+            if (MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(req) != NULL) {
+                MPIR_Request *netmod_req = MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(req);
+                MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(req) = NULL;
+                mpi_errno = MPIDI_NM_mpi_cancel_recv(netmod_req);
+            }
             MPIDI_POSIX_REQUEST_COMPLETE(req);
 
             break;
@@ -363,7 +368,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_mpi_cancel_recv(MPIR_Request * rreq)
 
     MPID_THREAD_CS_EXIT(POBJ, MPIDI_POSIX_SHM_MUTEX);
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_POSIX_MPI_CANCEL_RECV);
-    return MPI_SUCCESS;
+    return mpi_errno;
 }
 
 #endif /* POSIX_RECV_H_INCLUDED */

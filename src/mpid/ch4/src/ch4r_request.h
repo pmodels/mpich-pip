@@ -73,6 +73,7 @@ static inline int MPIDI_CH4R_anysource_matched(MPIR_Request * rreq, int caller,
 
     if (MPIDI_CH4R_NETMOD == caller) {
 #ifndef MPIDI_CH4_DIRECT_NETMOD
+        MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(rreq) = NULL;
         mpi_errno = MPIDI_SHM_mpi_cancel_recv(rreq);
 
         /* If the netmod is cancelling the request, then shared memory will
@@ -86,11 +87,21 @@ static inline int MPIDI_CH4R_anysource_matched(MPIR_Request * rreq, int caller,
 #endif
         *continue_matching = 0;
     } else if (MPIDI_CH4R_SHM == caller) {
+        MPIR_Request *shm_req = MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(rreq);
+        MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(rreq) = NULL;
+        MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(shm_req) = NULL;
         mpi_errno = MPIDI_NM_mpi_cancel_recv(rreq);
 
         /* If the netmod has already matched this request, shared memory will
          * lose and should stop matching this request */
         *continue_matching = !MPIR_STATUS_GET_CANCEL_BIT(rreq->status);
+        if (*continue_matching) {
+            MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(shm_req) = NULL;
+            mpi_errno = MPIDI_SHM_mpi_cancel_recv(shm_req);
+            if (MPIR_STATUS_GET_CANCEL_BIT(shm_req->status)) {
+                shm_req->status = rreq->status;
+            }
+        }
     }
 
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_CH4R_ANYSOURCE_MATCHED);

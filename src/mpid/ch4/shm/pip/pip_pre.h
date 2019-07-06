@@ -43,7 +43,10 @@ typedef struct MPIDI_PIP_task {
     // struct MPIDI_PIP_task_queue *compl_queue;
     void *src;
     void *dest;
-    size_t data_sz;
+    union {
+        size_t data_sz;
+        size_t last;
+    };
     struct MPIDI_PIP_task *next;
     struct MPIDI_PIP_task *compl_next;
 } MPIDI_PIP_task_t;
@@ -62,6 +65,11 @@ typedef struct MPIDI_PIP_global {
     uint64_t *shm_in_proc;
     uint64_t *local_send_counter;
     uint64_t *shm_send_counter;
+
+    MPIDI_PIP_task_queue_t *ucx_task_queue;     // ucx netmod queue
+    MPIDI_PIP_task_queue_t **shm_ucx_task_queue;
+    MPIDI_PIP_task_queue_t *ucx_local_compl_queue;
+
     MPIDI_PIP_task_queue_t *task_queue; // socket aware queue
     MPIDI_PIP_task_queue_t **shm_task_queue;
     MPIDI_PIP_task_queue_t *local_compl_queue;

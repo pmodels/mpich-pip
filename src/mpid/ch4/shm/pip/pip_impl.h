@@ -13,6 +13,7 @@
 #define PIP_IMPL_H_INCLUDED
 
 #include "pip_pre.h"
+#include "../posix/posix_impl.h"
 
 extern MPIR_Object_alloc_t MPIDI_Segment_mem;
 
@@ -228,6 +229,48 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_fflush_task()
 }
 
 
+
+#undef FCNAME
+#define FCNAME MPL_QUOTE(MPIDI_PIP_do_ucx_task_copy)
+MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_do_ucx_task_copy(MPIDI_PIP_task_t * task)
+{
+    int mpi_errno = MPI_SUCCESS;
+    // int task_id = task->task_id;
+    // void *recv_buffer;
+    // struct timespec start, end;
+    // clock_gettime(CLOCK_MONOTONIC, &start);
+
+    if (task->send_flag) {
+        MPIR_Segment_pack(task->segp, task->segment_first, (MPI_Aint *) & task->last, task->dest);
+    } else {
+        MPIR_Segment_unpack(task->segp, task->segment_first, (MPI_Aint *) & task->last, task->src);
+    }
+
+    pip_global.copy_size += task->data_sz;
+
+    OPA_write_barrier();
+
+    task->compl_flag = 1;
+
+    return mpi_errno;
+}
+
+#undef FCNAME
+#define FCNAME MPL_QUOTE(MPIDI_PIP_ucx_fflush_task)
+MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_ucx_fflush_task(MPIDI_PIP_task_queue_t * task_queue)
+{
+    MPIDI_PIP_task_t *task;
+    int i;
+    while (task_queue->head) {
+        MPIDI_PIP_Task_safe_dequeue(task_queue, &task);
+        /* find my own task */
+        if (task) {
+            MPIDI_PIP_do_ucx_task_copy(task);
+        }
+    }
+    return;
+}
+
 #undef FCNAME
 #define FCNAME MPL_QUOTE(MPIDI_PIP_steal_task)
 MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_steal_task()
@@ -255,13 +298,24 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_steal_task()
         //      pip_global.local_rank, victim, task, task->data_sz,
         //      pip_global.shm_task_queue[victim]->task_num, pip_global.shm_task_queue[victim]);
         // fflush(stdout);
-
-
-#endif
-
 #ifdef MPI_PIP_NM_TASK_STEAL
+        /* netmod stealing */
+        else {
+            victim_queue = pip_global.shm_ucx_task_queue[victim];
+            if (victim_queue->head) {
+                MPIDI_PIP_Task_safe_dequeue(victim_queue, &task);
+                if (task)
+                    MPIDI_PIP_do_ucx_task_copy(task);
+            }
+        }
+#endif
 
 #endif
+
+
     }
 }
+
+
+
 #endif

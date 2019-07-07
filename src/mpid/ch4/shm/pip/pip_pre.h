@@ -61,6 +61,7 @@ typedef struct MPIDI_PIP_task_queue {
 typedef struct MPIDI_PIP_global {
     uint32_t num_local;
     uint32_t local_rank;
+    uint32_t rank;
     uint32_t numa_max_node;
     uint64_t *shm_in_proc;
     uint64_t *local_send_counter;

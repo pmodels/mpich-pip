@@ -240,6 +240,11 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_recv(int blocking, int *comple
                             MPIR_Memcpy(task->segp, MPIDI_POSIX_REQUEST(req)->segment_ptr,
                                         sizeof(DLOOP_Segment));
                             task->segment_first = first;
+                            MPIR_Segment_manipulate(MPIDI_POSIX_REQUEST(req)->segment_ptr, first, &last, NULL,  /* contig fn */
+                                                    NULL,       /* vector fn */
+                                                    NULL,       /* blkidx fn */
+                                                    NULL,       /* index fn */
+                                                    NULL, NULL);
                             MPIDI_PIP_Task_safe_enqueue(&pip_global.task_queue[socket_id], task);
                             MPIDI_PIP_Compl_task_enqueue(pip_global.local_compl_queue, task);
                             if (pip_global.local_compl_queue->task_num >= MPIDI_MAX_TASK_THREASHOLD) {

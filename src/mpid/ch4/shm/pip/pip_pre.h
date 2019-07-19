@@ -23,7 +23,7 @@ struct MPIDI_PIP_task_queue;
 /* Use cell->pkt.mpich.type = MPIDI_POSIX_TYPEEAGER to judge the complete transfer */
 typedef struct MPIDI_PIP_task {
     MPIR_OBJECT_HEADER;
-    // int rank;
+    int local_rank;
     int compl_flag;
     MPI_Aint asym_addr;
     // union {
@@ -85,6 +85,8 @@ typedef struct MPIDI_PIP_global {
     int recv_empty;
     int local_numa_id;
 
+    int cur_parallelism;
+    int max_parallelism;
 } MPIDI_PIP_global_t;
 
 extern MPIDI_PIP_global_t pip_global;

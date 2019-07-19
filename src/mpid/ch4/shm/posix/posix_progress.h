@@ -221,7 +221,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_recv(int blocking, int *comple
                                                             MPIDI_POSIX_recvq_unexpected);
                             }
 
-                            // task->rank = pip_global.local_rank;
+                            task->local_rank = pip_global.local_rank;
                             task->send_flag = 0;
                             task->compl_flag = 0;
                             task->data_sz = data_sz;
@@ -269,8 +269,18 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_recv(int blocking, int *comple
                         // eager_task_id = pip_global.local_recv_counter[src_local]++;
                     } else {
                         if (type == MPIDI_POSIX_TYPELMT_LAST) {
+                            int victim = 0;
+                            __sync_add_and_fetch(&pip_global.
+                                                 shm_pip_global[victim]->cur_parallelism, 1);
+                            if (pip_global.shm_pip_global[victim]->cur_parallelism >
+                                pip_global.shm_pip_global[victim]->max_parallelism) {
+                                pip_global.shm_pip_global[victim]->max_parallelism =
+                                    pip_global.shm_pip_global[victim]->cur_parallelism;
+                            }
                             pip_global.copy_size += data_sz;
                             MPIR_Memcpy(recv_buffer, (void *) send_buffer, data_sz);
+                            __sync_sub_and_fetch(&pip_global.
+                                                 shm_pip_global[victim]->cur_parallelism, 1);
                             MPIDI_PIP_fflush_task();
                             while (pip_global.local_compl_queue->head)
                                 MPIDI_PIP_fflush_compl_task(pip_global.local_compl_queue);
@@ -293,7 +303,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_recv(int blocking, int *comple
                                                             MPIDI_POSIX_recvq_unexpected);
                             }
 
-                            // task->rank = pip_global.local_rank;
+                            task->local_rank = pip_global.local_rank;
                             task->send_flag = 0;
                             task->compl_flag = 0;
                             task->data_sz = data_sz;
@@ -522,7 +532,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_send(int blocking, int *comple
                 task->next = NULL;
                 task->compl_next = NULL;
                 task->unexp_req = NULL;
-                // task->rank = pip_global.local_rank;
+                task->local_rank = pip_global.local_rank;
                 task->data_sz = sz_thsd;
 
                 // task->cur_task_id = pip_global.shm_send_counter + dest_local;
@@ -561,7 +571,10 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_send(int blocking, int *comple
                     task->dest = recv_buffer;
                     MPIDI_POSIX_REQUEST(sreq)->user_buf += sz_thsd;
                 }
-
+                // static int enqueue_num = 0;
+                // printf("rank %d - enqueue task index %d, data_sz %ld\n", pip_global.local_rank,
+                //        enqueue_num++, sz_thsd);
+                // fflush(stdout);
                 MPIDI_PIP_Task_safe_enqueue(&pip_global.task_queue[cell->socket_id], task);
                 MPIDI_PIP_Compl_task_enqueue(pip_global.local_compl_queue, task);
 
@@ -574,6 +587,17 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_send(int blocking, int *comple
 
                 pip_global.copy_size += sz_thsd;
                 cell->pkt.mpich.type = MPIDI_POSIX_TYPELMT_LAST;
+                int victim = 0;
+                __sync_add_and_fetch(&pip_global.shm_pip_global[victim]->cur_parallelism, 1);
+                // printf("rank %d - victim %d cur_parallelism %d\n", pip_global.local_rank, victim,
+                //        pip_global.shm_pip_global[victim]->cur_parallelism);
+                // fflush(stdout);
+                if (pip_global.shm_pip_global[victim]->cur_parallelism >
+                    pip_global.shm_pip_global[victim]->max_parallelism) {
+                    pip_global.shm_pip_global[victim]->max_parallelism =
+                        pip_global.shm_pip_global[victim]->cur_parallelism;
+                }
+
                 if (MPIDI_POSIX_REQUEST(sreq)->segment_ptr) {
                     /* non-contig */
                     size_t last = MPIDI_POSIX_REQUEST(sreq)->segment_first + sz_thsd;
@@ -588,11 +612,12 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_progress_send(int blocking, int *comple
                     MPIR_Memcpy((void *) recv_buffer, MPIDI_POSIX_REQUEST(sreq)->user_buf, sz_thsd);
                     MPIDI_POSIX_REQUEST(sreq)->user_buf += sz_thsd;
                 }
-
+                __sync_sub_and_fetch(&pip_global.shm_pip_global[victim]->cur_parallelism, 1);
                 MPIDI_PIP_fflush_task();
                 while (pip_global.local_compl_queue->head)
                     MPIDI_PIP_fflush_compl_task(pip_global.local_compl_queue);
                 MPIDI_POSIX_queue_enqueue(MPIDI_POSIX_mem_region.RecvQ[grank], cell);
+
             }
 
         }

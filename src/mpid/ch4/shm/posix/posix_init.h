@@ -38,6 +38,7 @@ void MPIDI_PIP_init()
     // MPIDI_PIP_task_t *task_dummy, *compl_dummy;
     MPIR_CHKPMEM_DECL(12);
 
+    pip_global.max_parallelism = pip_global.cur_parallelism = 0;
     pip_global.num_local = num_local = MPIDI_POSIX_mem_region.num_local;
     pip_global.local_rank = local_rank = MPIDI_POSIX_mem_region.local_rank;
     pip_global.rank = MPIDI_POSIX_mem_region.rank;
@@ -158,20 +159,18 @@ void MPIDI_PIP_init()
     MPIDU_shm_barrier_t *pip_barrier;
     uint64_t *shm_in_proc_addr;
     mpi_errno =
-    MPIDU_shm_seg_alloc(num_local * sizeof(uint64_t),
-    (void **) &task_queue_addr, MPL_MEM_SHM);
+        MPIDU_shm_seg_alloc(num_local * sizeof(uint64_t), (void **) &task_queue_addr, MPL_MEM_SHM);
     if (mpi_errno)
         MPIR_ERR_POP(mpi_errno);
 
     mpi_errno =
-    MPIDU_shm_seg_alloc(num_local * sizeof(uint64_t),
-    (void **) &pip_global_addr, MPL_MEM_SHM);
+        MPIDU_shm_seg_alloc(num_local * sizeof(uint64_t), (void **) &pip_global_addr, MPL_MEM_SHM);
     if (mpi_errno)
         MPIR_ERR_POP(mpi_errno);
 
     mpi_errno =
-    MPIDU_shm_seg_alloc(num_local * sizeof(uint64_t),
-    (void **) &ucx_task_queue_addr, MPL_MEM_SHM);
+        MPIDU_shm_seg_alloc(num_local * sizeof(uint64_t),
+                            (void **) &ucx_task_queue_addr, MPL_MEM_SHM);
     if (mpi_errno)
         MPIR_ERR_POP(mpi_errno);
 
@@ -180,9 +179,9 @@ void MPIDI_PIP_init()
         MPIR_ERR_POP(mpi_errno);
 
     mpi_errno =
-    MPIDU_shm_seg_commit(&pip_memory, &pip_barrier,
-    num_local, local_rank, MPIDI_POSIX_mem_region.local_procs[0],
-    MPIDI_POSIX_mem_region.rank, MPL_MEM_SHM);
+        MPIDU_shm_seg_commit(&pip_memory, &pip_barrier,
+                             num_local, local_rank, MPIDI_POSIX_mem_region.local_procs[0],
+                             MPIDI_POSIX_mem_region.rank, MPL_MEM_SHM);
     if (mpi_errno)
         MPIR_ERR_POP(mpi_errno);
 
@@ -196,13 +195,11 @@ void MPIDI_PIP_init()
     if (mpi_errno)
         MPIR_ERR_POP(mpi_errno);
 
-    if (pip_global.local_rank != 0)
-    {
+    if (pip_global.local_rank != 0) {
         pip_global.shm_in_proc = (uint64_t *) * shm_in_proc_addr;
     }
 
-    for (i = 0; i < num_local; ++i)
-    {
+    for (i = 0; i < num_local; ++i) {
         // printf("rank %d - get process %d task queue %lx\n", local_rank, i, task_queue_addr[i]);
         // fflush(stdout);
         pip_global.shm_task_queue[i] = (MPIDI_PIP_task_queue_t *) task_queue_addr[i];
@@ -478,6 +475,10 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_POSIX_mpi_finalize_hook(void)
 
     // printf("%s\n", results);
     // fflush(stdout);
+    if (pip_global.local_rank == 0) {
+        printf("rank (0, 1) max parallelism %d \n", pip_global.shm_pip_global[0]->max_parallelism);
+        fflush(stdout);
+    }
     /* local barrier */
     mpi_errno = MPIDU_shm_barrier(MPIDI_POSIX_mem_region.barrier, MPIDI_POSIX_mem_region.num_local);
 

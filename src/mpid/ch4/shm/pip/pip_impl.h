@@ -56,6 +56,22 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_PIP_Task_safe_dequeue(MPIDI_PIP_task_queue_t
         task_queue->task_num--;
     }
     MPID_Thread_mutex_unlock(&task_queue->lock, &err);
+
+    if (old_head) {
+        int victim = 0;
+        __sync_add_and_fetch(&pip_global.shm_pip_global[victim]->cur_parallelism, 1);
+        // if (old_head->send_flag) {
+        //     printf("rank %d - victim %d cur_parallelism %d\n", pip_global.local_rank, victim,
+        //            pip_global.shm_pip_global[victim]->cur_parallelism);
+        //     fflush(stdout);
+        // }
+        if (pip_global.shm_pip_global[victim]->cur_parallelism >
+            pip_global.shm_pip_global[victim]->max_parallelism) {
+            pip_global.shm_pip_global[victim]->max_parallelism =
+                pip_global.shm_pip_global[victim]->cur_parallelism;
+        }
+    }
+
     *task = old_head;
 
     return;
@@ -142,10 +158,12 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_PIP_do_task_copy(MPIDI_PIP_task_t * task)
         /* contig */
         MPIR_Memcpy(task->dest, task->src, task->data_sz);
     }
-    pip_global.copy_size += task->data_sz;
 
+    pip_global.copy_size += task->data_sz;
     // task->next = NULL;
     MPIDI_POSIX_cell_ptr_t cell = task->cell;
+    __sync_sub_and_fetch(&pip_global.shm_pip_global[0]->cur_parallelism, 1);
+
     // if (task->send_flag) {
     //     // while (task_id != *task->cur_task_id);
     //     MPIDI_POSIX_PIP_queue_enqueue(task->cell_queue, cell, task->asym_addr);

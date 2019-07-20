@@ -277,10 +277,42 @@ static inline int MPIDI_POSIX_mpi_init_hook(int rank, int size, int *n_vnis_prov
     MPIDI_POSIX_mem_region.local_ranks = local_ranks;
     MPIDI_POSIX_mem_region.local_rank = local_rank;
     MPIDI_POSIX_mem_region.next = NULL;
-    cpu_set_t mask;
-    CPU_ZERO(&mask);
-    CPU_SET(local_rank, &mask);
-    sched_setaffinity(getpid(), sizeof(cpu_set_t), &mask);
+    char *BIND_MODE = getenv("BIND_MODE");
+    if (strcmp(BIND_MODE, "SEQUENCE") == 0) {
+        cpu_set_t mask;
+        CPU_ZERO(&mask);
+        CPU_SET(local_rank, &mask);
+        sched_setaffinity(getpid(), sizeof(cpu_set_t), &mask);
+    } else if (strcmp(BIND_MODE, "HALF") == 0) {
+        int half = num_local / 2;
+        if (local_rank < half) {
+            cpu_set_t mask;
+            CPU_ZERO(&mask);
+            CPU_SET(local_rank, &mask);
+            sched_setaffinity(getpid(), sizeof(cpu_set_t), &mask);
+        } else {
+            cpu_set_t mask;
+            CPU_ZERO(&mask);
+            CPU_SET(local_rank - half + 18, &mask);
+            sched_setaffinity(getpid(), sizeof(cpu_set_t), &mask);
+        }
+    } else if (strcmp(BIND_MODE, "LAST") == 0) {
+        if (local_rank == num_local - 1) {
+            cpu_set_t mask;
+            CPU_ZERO(&mask);
+            CPU_SET(35, &mask);
+            sched_setaffinity(getpid(), sizeof(cpu_set_t), &mask);
+        } else {
+            cpu_set_t mask;
+            CPU_ZERO(&mask);
+            CPU_SET(local_rank, &mask);
+            sched_setaffinity(getpid(), sizeof(cpu_set_t), &mask);
+        }
+    }
+    // cpu_set_t mask;
+    // CPU_ZERO(&mask);
+    // CPU_SET(local_rank, &mask);
+    // sched_setaffinity(getpid(), sizeof(cpu_set_t), &mask);
 
     int cpu = sched_getcpu();
     int numa_id = numa_node_of_cpu(cpu);
